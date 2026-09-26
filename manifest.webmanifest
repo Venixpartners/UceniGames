@@ -1,0 +1,10 @@
+{
+  "name": "Uceni Games",
+  "short_name": "Uceni",
+  "description": "Learn. Think. Grow.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

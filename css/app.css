@@ -1,0 +1,143 @@
+/* Uceni Games. Colours, type and components follow the Uceni Brand Guidelines. */
+:root{
+  --ink:#000000; --paper:#ffffff; --line:#cdd8e5; --soft:#f2f5f9;
+  --good:#1a7a3a; --bad:#c21c2d; --margin:#e2a1a1; --onfill:#ffffff;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#f4f4f1; --paper:#17191c; --line:#3a4350; --soft:#22262b;
+    --good:#4cc073; --bad:#ff6b77; --margin:#7a4545; --onfill:#17191c;
+    color-scheme:dark;
+  }
+  :root:not([data-theme="light"]) .logo-dark{display:none}
+  :root:not([data-theme="light"]) .logo-light{display:inline-block}
+}
+.logo-light{display:none}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"Atkinson Hyperlegible",Arial,system-ui,sans-serif;font-size:1.0625rem;line-height:1.5;-webkit-text-size-adjust:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+a{color:inherit}
+.wrap{max-width:34rem;margin:0 auto;padding:1rem 1.25rem 7rem}
+.banner{font-size:.8125rem;text-align:center;padding:.4rem 1rem;background:var(--soft)}
+.topbar{display:flex;align-items:center;justify-content:space-between;max-width:34rem;margin:0 auto;padding:.9rem 1.25rem 0}
+.topbar img{height:28px;width:auto}
+h1,h2,h3{line-height:1.2;margin:0}
+h1{font-size:1.75rem}
+h2{font-size:1.3rem}
+p{margin:.5rem 0}
+.small{font-size:.875rem}
+.stack>*+*{margin-top:1rem}
+.hero-logo{height:64px;width:auto;margin-top:2.25rem}
+.tag{font-size:1.25rem;font-weight:700;margin-top:.5rem}
+
+.btn{display:block;width:100%;padding:.9rem 1rem;border-radius:12px;border:2px solid var(--ink);background:var(--ink);color:var(--paper);font-weight:700;cursor:pointer;text-align:center;text-decoration:none}
+.btn.alt{background:transparent;color:var(--ink)}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--ink);text-decoration:underline;font-weight:400;width:auto;padding:.4rem 0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:.75rem}
+.row>*{flex:1}
+
+.field{display:block}
+.field span{display:block;font-weight:700;margin-bottom:.35rem}
+.field input,.field textarea{width:100%;padding:.8rem .9rem;border:2px solid var(--line);border-radius:10px;background:var(--paper)}
+.field input:focus,.field textarea:focus{border-color:var(--ink);outline:none}
+.code-input{letter-spacing:.4em;font-size:1.4rem;text-align:center}
+.err{color:var(--bad);font-size:.9rem;min-height:1.3em;margin:.35rem 0 0}
+.notice{background:var(--soft);border-radius:10px;padding:.75rem .9rem;font-size:.9rem}
+
+/* Answer options styled after a shaded exam answer sheet */
+.opts{list-style:none;margin:1.25rem 0 0;padding:0;display:grid;gap:.6rem}
+.opt{display:flex;align-items:center;gap:.9rem;width:100%;text-align:left;padding:.8rem .9rem;border:2px solid var(--line);border-radius:12px;background:var(--paper);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--ink)}
+.bub{flex:none;width:2.1rem;height:2.1rem;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font-weight:700;font-size:.95rem;transition:background .15s,color .15s;position:relative}
+.opt:disabled{cursor:default}
+.opt.chosen .bub{background:var(--ink);color:var(--onfill)}
+.opt.right{border-color:var(--good)}
+.opt.right .bub{background:var(--good);border-color:var(--good);color:#fff}
+.opt.wrong{border-color:var(--bad)}
+.opt.wrong .bub{background:transparent;border-color:var(--bad);color:var(--bad)}
+.opt.wrong .bub::after{content:"";position:absolute;width:140%;height:2px;background:var(--bad);transform:rotate(-40deg)}
+.opt.fade{opacity:.55}
+
+.qhead{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;font-size:.9rem;margin-top:.5rem}
+.timer{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin:.6rem 0 1.25rem}
+.timer i{display:block;height:100%;width:100%;background:var(--ink)}
+.timer.low i{background:var(--bad)}
+.q{font-size:1.3rem;font-weight:700;line-height:1.35}
+.fb{margin-top:1.25rem;padding:1rem;border-left:4px solid var(--ink);background:var(--soft);border-radius:0 10px 10px 0}
+.fb.good{border-color:var(--good)} .fb.bad{border-color:var(--bad)}
+.fb strong{display:block;margin-bottom:.25rem}
+
+/* Exercise book ruling for subject lists */
+.ruled{list-style:none;margin:.75rem 0 0;padding:0 0 0 .9rem;border-left:2px solid var(--margin)}
+.ruled li{border-bottom:1px solid var(--line)}
+.ruled button{display:flex;justify-content:space-between;align-items:center;gap:1rem;width:100%;padding:.95rem 0;background:none;border:0;text-align:left;cursor:pointer}
+.ruled .nm{font-weight:700}
+.ruled .lv{font-size:.875rem;white-space:nowrap}
+
+.stats{display:flex;gap:1.5rem;margin-top:1rem;flex-wrap:wrap}
+.stats div{font-size:.875rem}
+.stats b{display:block;font-size:1.6rem;line-height:1.1}
+
+.plans{list-style:none;margin:1rem 0 0;padding:0;display:grid;gap:.6rem}
+.plan{display:flex;align-items:center;gap:.9rem;width:100%;padding:1rem;border:2px solid var(--line);border-radius:12px;background:var(--paper);cursor:pointer;text-align:left}
+.plan[aria-checked="true"]{border-color:var(--ink)}
+.plan[aria-checked="true"] .bub{background:var(--ink)}
+.plan .bub{width:1.4rem;height:1.4rem}
+.plan .pr{margin-left:auto;font-weight:700;font-size:1.15rem;white-space:nowrap}
+
+.sheet{border:2px solid var(--ink);border-radius:14px;padding:1.25rem}
+.sms{background:var(--soft);border-radius:14px 14px 14px 4px;padding:.9rem 1rem;font-size:.95rem}
+
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:.4rem}
+.bar i{display:block;height:100%;background:var(--ink)}
+.subj{padding:.9rem 0;border-bottom:1px solid var(--line)}
+.subj .top{display:flex;justify-content:space-between;gap:1rem}
+
+.board{list-style:none;margin:1rem 0 0;padding:0}
+.board li{display:flex;align-items:center;gap:.9rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
+.board .rk{width:1.75rem;font-weight:700}
+.board .me{font-weight:700}
+.board .pt{margin-left:auto}
+
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.9rem 0;border-bottom:1px solid var(--line)}
+.sw{width:3rem;height:1.75rem;border-radius:1rem;border:2px solid var(--ink);background:var(--paper);position:relative;cursor:pointer;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:1.2rem;height:1.2rem;border-radius:50%;background:var(--ink);transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--ink)}
+.sw[aria-checked="true"]::after{background:var(--paper);transform:translateX(1.2rem)}
+
+dl.kv{margin:1rem 0 0}
+dl.kv div{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--line)}
+dl.kv dt{font-weight:400} dl.kv dd{margin:0;font-weight:700;text-align:right}
+
+.review{list-style:none;margin:1rem 0 0;padding:0}
+.review li{padding:.9rem 0;border-bottom:1px solid var(--line)}
+.review .mk{font-weight:700}
+.review .mk.good{color:var(--good)} .review .mk.bad{color:var(--bad)}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav.tabs .in{max-width:34rem;margin:0 auto;display:flex}
+nav.tabs button{flex:1;padding:.85rem .25rem;background:none;border:0;font-size:.9rem;cursor:pointer;border-top:3px solid transparent}
+nav.tabs button[aria-current="page"]{font-weight:700;border-top-color:var(--ink)}
+
+.note{font-size:.875rem;border-top:1px solid var(--line);padding-top:1rem;margin-top:2rem}
+.big{font-size:3rem;font-weight:700;line-height:1}
+.loading{padding:3rem 0;text-align:center}
+.links{display:flex;flex-wrap:wrap;gap:.25rem 1rem;font-size:.875rem;margin-top:1rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Legal pages */
+.legal h1{margin-top:1.5rem}
+.legal h2{margin-top:2rem}
+.legal h3{margin-top:1.25rem;font-size:1.05rem}
+.legal li{margin:.35rem 0}
+.legal table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.95rem}
+.legal th,.legal td{border:1px solid var(--line);padding:.5rem .6rem;text-align:left;vertical-align:top}
+.legal .wrap{padding-bottom:3rem}
