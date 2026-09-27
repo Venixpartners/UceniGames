@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Uceni Admin</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  .wrap{max-width:64rem;padding-bottom:4rem}
+  .topbar{max-width:64rem}
+  .adnav{display:flex;flex-wrap:wrap;gap:.25rem 1.25rem;border-bottom:1px solid var(--line);margin:1rem 0 1.5rem}
+  .adnav button{background:none;border:0;padding:.7rem 0;cursor:pointer;border-bottom:3px solid transparent}
+  .adnav button[aria-current="page"]{font-weight:700;border-bottom-color:var(--ink)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:1rem;margin:1rem 0}
+  .card{border:1px solid var(--line);border-radius:12px;padding:1rem}
+  .card b{display:block;font-size:1.7rem;line-height:1.1}
+  .tbl{overflow-x:auto;margin:.75rem 0 1.5rem}
+  table{border-collapse:collapse;width:100%;font-size:.95rem}
+  th,td{border-bottom:1px solid var(--line);padding:.55rem .5rem;text-align:left;vertical-align:top}
+  th{font-weight:700;white-space:nowrap}
+  td.n,th.n{text-align:right}
+  .filters{display:flex;flex-wrap:wrap;gap:.6rem;align-items:end;margin-bottom:1rem}
+  .filters select,.filters input{padding:.6rem .7rem;border:2px solid var(--line);border-radius:10px;background:var(--paper)}
+  .btn.sm{display:inline-block;width:auto;padding:.5rem .9rem;font-size:.9rem;border-radius:10px}
+  .qitem{border:1px solid var(--line);border-radius:12px;padding:1rem;margin-bottom:.75rem}
+  .qitem .meta{display:flex;flex-wrap:wrap;gap:.5rem 1rem;font-size:.85rem;margin-bottom:.35rem}
+  .qitem ol{margin:.5rem 0;padding-left:1.4rem}
+  .qitem .ok{font-weight:700;color:var(--good)}
+  .pill{display:inline-block;border:1px solid var(--ink);border-radius:999px;padding:0 .55rem;font-size:.8rem}
+  .actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  @media (max-width:40rem){.grid2{grid-template-columns:1fr}}
+  select.field-sel{width:100%;padding:.8rem .9rem;border:2px solid var(--line);border-radius:10px;background:var(--paper)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <img class="logo-dark" src="/assets/uceni-wordmark.svg" alt="uceni">
+  <img class="logo-light" src="/assets/uceni-wordmark-white.svg" alt="uceni">
+  <span class="small">Admin</span>
+</header>
+<main class="wrap" id="app"><div class="loading">Loading</div></main>
+<script src="/js/config.js"></script>
+<script src="/admin/admin.js"></script>
+</body>
+</html>
