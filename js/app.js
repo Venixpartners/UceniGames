@@ -84,6 +84,7 @@ var chosenPlan = "weekly";
 var chosenLevel = (function(){ try{ return localStorage.getItem("uceni_level") || "beginner"; }catch(e){ return "beginner"; } })();
 var pendingSubject = null;
 var pendingPhone = "", pendingName = "", testCode = null;
+try{ pendingName = localStorage.getItem("uceni_name") || ""; pendingPhone = localStorage.getItem("uceni_phone") || ""; }catch(e){}
 var sess = null, timerId = null;
 var current = "";
 
@@ -119,13 +120,14 @@ var SCREENS = {}, AFTER = {};
 
 /* ---------- Welcome and sign in ---------- */
 SCREENS.welcome = function(){
-  return '<div class="stack">'+
-    '<img class="hero-logo logo-dark" src="/assets/uceni-wordmark.svg" alt="uceni">'+
-    '<img class="hero-logo logo-light" src="/assets/uceni-wordmark-white.svg" alt="uceni">'+
-    '<p class="tag">Learn. Think. Grow.</p>'+
-    onlineHtml()+
-    '<div class="pitch"><span>'+icon("maths")+'</span><span>'+icon("science")+'</span><span>'+icon("geography")+'</span><span>'+icon("english")+'</span><span>'+icon("gk")+'</span></div>'+
-    '<p>Eight subjects, three levels, ten quick questions a round. Enter your name and phone number to play.</p>'+
+  return '<div class="hero">'+
+      '<img class="hero-icon" src="/assets/uceni-icon-white.svg" alt="">'+
+      '<img class="hero-mark" src="/assets/uceni-wordmark-white.svg" alt="uceni">'+
+      '<p class="hero-tag">Learn. Think. Grow.</p>'+
+    '</div>'+
+    '<div class="stack">'+
+    '<div class="online-row">'+onlineHtml()+'</div>'+
+    '<p>Enter your name and phone number to play.</p>'+
     '<label class="field"><span>Your name</span><input id="dname" type="text" maxlength="24" autocomplete="given-name" value="'+esc(pendingName)+'" data-autofocus></label>'+
     '<label class="field"><span>Phone number</span><input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0803 123 4567" value="'+esc(pendingPhone)+'"></label>'+
     '<p class="err" id="err" aria-live="polite"></p>'+
@@ -485,7 +487,10 @@ function goTo(screen){
 function signIn(t){
   pendingName=document.getElementById("dname").value; pendingPhone=document.getElementById("phone").value;
   busy(t,true); setErr("");
-  api("sign_in",{display_name:pendingName, phone:pendingPhone}).then(function(d){ setToken(d.token); P=d.profile; go("home"); refreshOnline(); })
+  api("sign_in",{display_name:pendingName, phone:pendingPhone}).then(function(d){
+    setToken(d.token); P=d.profile;
+    try{ localStorage.setItem("uceni_name", pendingName.trim()); localStorage.setItem("uceni_phone", pendingPhone.trim()); }catch(err){}
+    go("home"); refreshOnline(); })
     .catch(function(err){ busy(t,false); setErr(err.message); });
 }
 function setErr(m){ var e=document.getElementById("err"); if(e) e.textContent=m||""; }
@@ -549,7 +554,8 @@ document.addEventListener("click",function(e){
     api("cancel").then(function(d){ P=d.profile; go("cancelled"); }).catch(function(err){ alert(err.message); });
     return;
   }
-  if(a==="sign_out"){ api("sign_out").catch(function(){}).then(function(){ setToken(null); P=null; go("welcome"); }); return; }
+  if(a==="sign_out"){ api("sign_out").catch(function(){}).then(function(){ setToken(null); P=null; pendingName=""; pendingPhone="";
+    try{ localStorage.removeItem("uceni_name"); localStorage.removeItem("uceni_phone"); }catch(err){} go("welcome"); }); return; }
 });
 
 document.addEventListener("keydown",function(e){
@@ -562,10 +568,5 @@ document.addEventListener("keydown",function(e){
 
 /* ---------- Start ---------- */
 startOnline();
-if(getToken()){
-  refreshProfile().then(function(){ go("home"); })
-    .catch(function(e){ if(e.status===401){ setToken(null); go("welcome"); } else showError(e,"home"); });
-} else {
-  go("welcome");
-}
+go("welcome");
 })();
