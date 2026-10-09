@@ -10,6 +10,8 @@ const SESSION_SIZE = 10;
 const TOKEN_DAYS = 90;
 // Until the aggregator or an SMS provider sends codes, OTP runs in test mode and the code is returned to the app.
 const OTP_LIVE = Deno.env.get("UCENI_OTP_MODE") === "live";
+// While billing is simulated, signing in gives full access. Set UCENI_BILLING_MODE=live to require a plan again.
+const BILLING_LIVE = Deno.env.get("UCENI_BILLING_MODE") === "live";
 // Progress ranks earned per subject. Difficulty levels (time and points per question) live in uceni.levels.
 const RANKS: [string, number][] = [["Starter", 0], ["Achiever", 300], ["Expert", 800], ["Scholar", 1600]];
 async function difficulty() {
@@ -104,6 +106,7 @@ async function profile(l: any) {
     subscription: subView(sub),
     subjects: subjects.map((s: any) => ({ ...s, level: levelOf(s.points) })),
     difficulty: await difficulty(),
+    billing_live: BILLING_LIVE,
   };
 }
 
@@ -136,6 +139,22 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     const learner = (await sql`
       insert into uceni.learners (phone, display_name) values (${phone}, ${name})
       on conflict (phone) do update set display_name = case when ${name} <> '' then ${name} else uceni.learners.display_name end
+      returning *`)[0];
+    const token = randomHex();
+    await sql`insert into uceni.learner_tokens (token_hash, learner_id, expires_at)
+              values (${await sha256(token)}, ${learner.id}, now() + ${TOKEN_DAYS + " days"}::interval)`;
+    return { token, profile: await profile(learner) };
+  },
+
+  // Direct sign in with name and phone number. Only available until sign in codes go live.
+  async sign_in(_req, body) {
+    if (OTP_LIVE) fail(403, "Please sign in with the code sent to your phone.");
+    const name = String(body.display_name ?? "").trim().slice(0, 24);
+    if (name.length < 2) fail(400, "Enter your name.");
+    const phone = normalisePhone(body.phone);
+    const learner = (await sql`
+      insert into uceni.learners (phone, display_name) values (${phone}, ${name})
+      on conflict (phone) do update set display_name = ${name}
       returning *`)[0];
     const token = randomHex();
     await sql`insert into uceni.learner_tokens (token_hash, learner_id, expires_at)
@@ -178,7 +197,7 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
 
   async start(req, body) {
     const l = await learnerFrom(req);
-    if (!await access(l.id)) fail(402, "Choose a plan to start learning.");
+    if (BILLING_LIVE && !await access(l.id)) fail(402, "Choose a plan to start learning.");
     const subject = (await sql`select * from uceni.subjects where id = ${String(body.subject_id)} and active`)[0];
     if (!subject) fail(400, "Unknown subject.");
     const level = (await sql`select * from uceni.levels where id = ${String(body.level ?? "beginner")}`)[0];

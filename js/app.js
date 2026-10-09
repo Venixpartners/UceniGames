@@ -23,6 +23,25 @@ function api(action, body){
 var PER = {daily:"per day", weekly:"per week", monthly:"per month"};
 var RENEW = {daily:"Renews daily until cancelled", weekly:"Renews weekly until cancelled", monthly:"Renews monthly until cancelled"};
 
+/* ---------- Sound ---------- */
+var soundOn = (function(){ try{ return localStorage.getItem("uceni_sound") !== "off"; }catch(e){ return true; } })();
+var actx = null;
+function tone(freq, start, len, type, vol){
+  var o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + start;
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + len + 0.05);
+}
+function playSound(correct){
+  if(!soundOn) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if(actx.state === "suspended") actx.resume();
+    if(correct){ tone(660,0,0.15,"sine",0.25); tone(880,0.12,0.25,"sine",0.25); }
+    else { tone(200,0,0.18,"square",0.08); tone(150,0.16,0.3,"square",0.08); }
+  }catch(e){}
+}
+
 /* ---------- State ---------- */
 var P = null;              // learner profile from the server
 var plans = [];
@@ -57,26 +76,23 @@ function showError(err, retryScreen){
     '<button class="btn" data-go="'+(retryScreen||"home")+'">Try again</button></div>';
   tabs.hidden = true;
 }
-function hasAccess(){ return !!(P && P.subscription); }
+function hasAccess(){ return !!P && (!P.billing_live || !!P.subscription); }
 
 var SCREENS = {}, AFTER = {};
 
 /* ---------- Welcome and sign in ---------- */
-var TRY = ["What is the capital of Kwara State?",["Ilorin","Lokoja","Osogbo","Minna"],0,"Ilorin is the capital of Kwara State."];
-
 SCREENS.welcome = function(){
   return '<div class="stack">'+
     '<img class="hero-logo logo-dark" src="/assets/uceni-wordmark.svg" alt="uceni">'+
     '<img class="hero-logo logo-light" src="/assets/uceni-wordmark-white.svg" alt="uceni">'+
     '<p class="tag">Learn. Think. Grow.</p>'+
-    '<p>Short, timed questions in Maths, English, Science, History and more. See the right answer and why after every question, and watch your knowledge build day by day.</p>'+
-    '<h2 style="margin-top:2rem">Try one now</h2>'+
-    '<p class="q">'+esc(TRY[0])+'</p>'+
-    '<ul class="opts">'+TRY[1].map(function(o,i){return '<li><button class="opt" data-try="'+i+'"><span class="bub">'+"ABCD"[i]+'</span><span>'+esc(o)+'</span></button></li>';}).join("")+'</ul>'+
-    '<div id="tryfb" aria-live="polite"></div>'+
-    '<div style="margin-top:2rem"><button class="btn" data-go="signup">Get started</button></div>'+
-    '<p class="note">Plans from ₦200 per day. Knowledge Points show your learning progress only. They have no cash value and cannot be exchanged for money, airtime, data or gifts.</p>'+
-    legalLinks()+
+    '<p>Enter your name and phone number to start learning.</p>'+
+    '<label class="field"><span>Your name</span><input id="dname" type="text" maxlength="24" autocomplete="given-name" value="'+esc(pendingName)+'" data-autofocus></label>'+
+    '<label class="field"><span>Phone number</span><input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0803 123 4567" value="'+esc(pendingPhone)+'"></label>'+
+    '<p class="err" id="err" aria-live="polite"></p>'+
+    '<button class="btn" data-act="sign_in">Start learning</button>'+
+    '<p class="small">By continuing you agree to the <a href="/legal/terms.html">Terms of Service</a> and <a href="/legal/privacy.html">Privacy Notice</a>.</p>'+
+    '<p class="note">Knowledge Points show your learning progress only. They have no cash value and cannot be exchanged for money, airtime, data or gifts.</p>'+
   '</div>';
 };
 
@@ -237,6 +253,7 @@ function answer(k){
       else if(i===k) b.classList.add("wrong");
       else b.classList.add("fade");
     });
+    playSound(r.correct);
     var L = "ABCD"[r.answer];
     var head = r.correct ? "Correct." : (k===null || r.timed_out ? "Time is up. The answer is "+L+"." : "Not quite. The answer is "+L+".");
     sess.last = r.is_last;
@@ -327,16 +344,12 @@ SCREENS.account = function(){
     '</dl>'+
     '<label class="field" style="margin-top:1.25rem"><span>Display name</span><input id="dname2" type="text" maxlength="24" value="'+esc(P.display_name)+'"></label>'+
     '<button class="btn alt" style="margin-top:.6rem" data-act="save_name">Save name</button>'+
+    '<div class="toggle" style="margin-top:.75rem"><span>Sound effects</span><button class="sw" role="switch" aria-checked="'+soundOn+'" aria-label="Sound effects" data-act="sound"></button></div>'+
     '<div class="toggle" style="margin-top:.75rem"><span>Hide me from the learning board</span><button class="sw" role="switch" aria-checked="'+P.hide_board+'" aria-label="Hide me from the learning board" data-act="hide"></button></div>'+
     '<div class="stack" style="margin-top:1.5rem">'+
       '<button class="btn alt" data-go="plans">'+(s?"Change plan":"Choose a plan")+'</button>'+
       (s&&s.status==="active"?'<button class="btn alt" data-act="cancel">Unsubscribe</button>':'')+
     '</div>'+
-    '<h2 style="margin-top:2rem">Help</h2>'+
-    '<p>Send HELP UCENI to '+C.shortcode+' for service and support details. Send STOP UCENI or STOP to '+C.shortcode+' to cancel at any time.</p>'+
-    '<label class="field"><span>Contact support</span><textarea id="complaint" rows="3" placeholder="Tell us what went wrong"></textarea></label>'+
-    '<p class="err" id="err" aria-live="polite"></p>'+
-    '<button class="btn alt" data-act="complaint">Send message</button>'+
     '<p class="note">Knowledge Points measure learning progress only. They have no monetary value and cannot be redeemed, exchanged or transferred for cash, airtime, data, goods or any other reward. Uceni Games offers no prizes or rewards of any kind.</p>'+
     legalLinks()+
     '<button class="btn quiet" style="margin-top:1rem" data-act="sign_out">Sign out</button>';
@@ -361,6 +374,12 @@ function goTo(screen){
 }
 
 /* ---------- Events ---------- */
+function signIn(t){
+  pendingName=document.getElementById("dname").value; pendingPhone=document.getElementById("phone").value;
+  busy(t,true); setErr("");
+  api("sign_in",{display_name:pendingName, phone:pendingPhone}).then(function(d){ setToken(d.token); P=d.profile; go("home"); })
+    .catch(function(err){ busy(t,false); setErr(err.message); });
+}
 function setErr(m){ var e=document.getElementById("err"); if(e) e.textContent=m||""; }
 function busy(btn,on){ if(btn){ btn.disabled=on; } }
 
@@ -373,13 +392,8 @@ document.addEventListener("click",function(e){
   if(t.dataset.review){ loading(); api("review",{session_id:t.dataset.review}).then(function(d){ go("review",d.answers); }).catch(function(err){ showError(err,"home"); }); return; }
   if(t.dataset.ans!==undefined){ answer(+t.dataset.ans); return; }
   if(t.dataset.plan){ chosenPlan=t.dataset.plan; Array.prototype.forEach.call(app.querySelectorAll("[data-plan]"),function(b){b.setAttribute("aria-checked",b.dataset.plan===chosenPlan);}); return; }
-  if(t.dataset.try!==undefined){
-    var k=+t.dataset.try;
-    Array.prototype.forEach.call(document.querySelectorAll("[data-try]"),function(b,i){ b.disabled=true; if(i===TRY[2]) b.classList.add("right"); else if(i===k) b.classList.add("wrong"); else b.classList.add("fade"); });
-    document.getElementById("tryfb").innerHTML='<div class="fb '+(k===TRY[2]?"good":"bad")+'"><strong>'+(k===TRY[2]?"Correct.":"Not quite. The answer is A.")+'</strong>'+esc(TRY[3])+'</div>';
-    return;
-  }
   var a = t.dataset.act;
+  if(a==="sign_in"){ signIn(t); return; }
   if(a==="request_otp"||a==="request_otp_again"){
     if(a==="request_otp"){ pendingPhone=document.getElementById("phone").value; pendingName=document.getElementById("dname").value; }
     busy(t,true); setErr("");
@@ -410,6 +424,7 @@ document.addEventListener("click",function(e){
     api("flag",{question_id:t.dataset.q, reason:reason}).then(function(){ t.outerHTML='<span class="small">Thank you. We will review this question.</span>'; }).catch(function(){});
     return;
   }
+  if(a==="sound"){ soundOn=!soundOn; t.setAttribute("aria-checked",soundOn); try{ localStorage.setItem("uceni_sound", soundOn?"on":"off"); }catch(err){} if(soundOn) playSound(true); return; }
   if(a==="hide"){
     var next = !P.hide_board; t.setAttribute("aria-checked",next);
     api("settings",{hide_board:next}).then(function(d){ P=d.profile; }).catch(function(err){ t.setAttribute("aria-checked",!next); alert(err.message); });
@@ -426,16 +441,11 @@ document.addEventListener("click",function(e){
     api("cancel").then(function(d){ P=d.profile; go("cancelled"); }).catch(function(err){ alert(err.message); });
     return;
   }
-  if(a==="complaint"){
-    busy(t,true); setErr("");
-    api("complaint",{message:document.getElementById("complaint").value}).then(function(){ document.getElementById("complaint").value=""; t.textContent="Message sent. We will reply within 24 hours."; })
-      .catch(function(err){ busy(t,false); setErr(err.message); });
-    return;
-  }
   if(a==="sign_out"){ api("sign_out").catch(function(){}).then(function(){ setToken(null); P=null; go("welcome"); }); return; }
 });
 
 document.addEventListener("keydown",function(e){
+  if(current==="welcome" && e.key==="Enter" && e.target.tagName==="INPUT"){ e.preventDefault(); var b=app.querySelector('[data-act="sign_in"]'); if(b && !b.disabled) signIn(b); return; }
   if(current!=="session"||!sess||sess.locked) return;
   if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
   var m = {"1":0,"2":1,"3":2,"4":3,"a":0,"b":1,"c":2,"d":3}[e.key.toLowerCase()];
@@ -444,7 +454,7 @@ document.addEventListener("keydown",function(e){
 
 /* ---------- Start ---------- */
 if(getToken()){
-  refreshProfile().then(function(){ if(hasAccess()) go("home"); else goTo("plans"); })
+  refreshProfile().then(function(){ go("home"); })
     .catch(function(e){ if(e.status===401){ setToken(null); go("welcome"); } else showError(e,"home"); });
 } else {
   go("welcome");
