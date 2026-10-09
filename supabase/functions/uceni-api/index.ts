@@ -153,13 +153,20 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     if (name.length < 2) fail(400, "Enter your name.");
     const phone = normalisePhone(body.phone);
     const learner = (await sql`
-      insert into uceni.learners (phone, display_name) values (${phone}, ${name})
-      on conflict (phone) do update set display_name = ${name}
+      insert into uceni.learners (phone, display_name, last_seen_at) values (${phone}, ${name}, now())
+      on conflict (phone) do update set display_name = ${name}, last_seen_at = now()
       returning *`)[0];
     const token = randomHex();
     await sql`insert into uceni.learner_tokens (token_hash, learner_id, expires_at)
               values (${await sha256(token)}, ${learner.id}, now() + ${TOKEN_DAYS + " days"}::interval)`;
     return { token, profile: await profile(learner) };
+  },
+
+  // Learners seen in the last 5 minutes. A signed in app calls this every 30 seconds, which keeps it counted.
+  async online(req) {
+    if (req.headers.get("x-uceni-token")) { try { await learnerFrom(req); } catch (_) { /* signed out visitors still see the count */ } }
+    const [r] = await sql`select count(*)::int as n from uceni.learners where last_seen_at > now() - interval '5 minutes'`;
+    return { online: r.n };
   },
 
   async me(req) { return { profile: await profile(await learnerFrom(req)) }; },
@@ -247,7 +254,7 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
                values (${s.id}, ${s.current_index}, ${q.id}, ${choice}, ${correct}, ${Math.min(elapsed, 2147483647)})`;
       await tx`update uceni.sessions set current_index = current_index + 1, served_at = null,
                correct = correct + ${correct ? 1 : 0}, fast = fast + ${fast ? 1 : 0} where id = ${s.id}`;
-      return { correct, timed_out: timedOut || raw === null, answer: q.answer, explanation: q.explanation,
+      return { correct, fast, timed_out: timedOut || raw === null, answer: q.answer, explanation: q.explanation,
                is_last: s.current_index + 1 >= s.question_ids.length };
     });
   },
