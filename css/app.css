@@ -263,3 +263,10 @@ nav.tabs button[aria-current="page"]{font-weight:700;border-top-color:var(--ink)
 .hero-mark{height:56px;width:auto;margin-top:1.25rem}
 .hero-tag{font-size:1.2rem;font-weight:700;margin:.9rem 0 0;color:#fff}
 .online-row{display:flex;justify-content:center;margin-top:1.25rem}
+
+/* Back arrow, top left of every screen after the front page */
+.topbar{gap:.5rem}
+.topbar .logo-dark,.topbar .logo-light{margin-right:auto}
+.back{flex:none;width:2.75rem;height:2.75rem;margin-left:-.5rem;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+.back:hover{background:var(--soft)}
+.back svg{width:1.6rem;height:1.6rem}

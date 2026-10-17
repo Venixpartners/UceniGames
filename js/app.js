@@ -91,7 +91,28 @@ var current = "";
 var app = document.getElementById("app"), tabs = document.getElementById("tabs"), topbar = document.getElementById("topbar");
 if(!C.billingLive) document.getElementById("banner").hidden = false;
 
-function go(screen, arg){
+/* ---------- Back navigation ---------- */
+var PARENT = {home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
+  progress:"home", board:"home", account:"home", plans:"home", confirm:"plans", subscribed:"home",
+  cancelled:"account", signup:"welcome", verify:"signup"};
+var lastResult = null, armed = false;
+// Keeps one history entry in hand so the phone's own back button runs goBack instead of leaving the site.
+function arm(){ if(!armed){ try{ history.pushState({uceni:1}, ""); armed = true; }catch(e){} } }
+function goBack(){
+  var to = PARENT[current];
+  if(!to) return;
+  if(current === "session"){
+    if(!confirm("End this round? Points from this round will not be saved.")){ arm(); return; }
+    sess = null;
+  }
+  if(to === "results" && lastResult){ go("results", lastResult, true); return; }
+  if(to === "results") to = "home";
+  if(to === "welcome"){ go("welcome"); return; }
+  goTo(to);
+}
+window.addEventListener("popstate", function(){ armed = false; goBack(); });
+
+function go(screen, arg, quiet){
   stopTimer();
   Array.prototype.forEach.call(document.querySelectorAll(".confetti"),function(c){ c.parentNode.removeChild(c); });
   current = screen;
@@ -99,6 +120,9 @@ function go(screen, arg){
   var withTabs = ["home","progress","board","account"].indexOf(screen) > -1;
   tabs.hidden = !withTabs;
   topbar.hidden = screen === "welcome";
+  var bb = document.getElementById("backbtn"); if(bb) bb.hidden = !PARENT[screen];
+  if(screen !== "welcome") arm();
+  if(screen === "results" && arg) lastResult = arg;
   Array.prototype.forEach.call(tabs.querySelectorAll("button"),function(b){
     if(b.dataset.go===screen) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   });
@@ -237,7 +261,6 @@ SCREENS.home = function(){
 SCREENS.difficulty = function(){
   var subj = P.subjects.filter(function(s){ return s.id===pendingSubject; })[0];
   return '<div class="stack">'+
-    '<button class="btn quiet" data-go="home">Back to subjects</button>'+
     '<div class="subhead"><span class="ico">'+icon(pendingSubject)+'</span><h1>'+esc(subj?subj.name:"Choose a level")+'</h1></div>'+
     '<p>Pick your challenge. Less time, more points.</p>'+
     '<ul class="modes" role="radiogroup" aria-label="Difficulty level">'+P.difficulty.map(function(d,i){
@@ -282,7 +305,6 @@ function dots(marks,total,cur){
 SCREENS.session = function(){
   var q = sess.q;
   return '<div class="hud">'+
-      '<button class="x" data-act="quit" aria-label="End round">&times;</button>'+
       '<span class="small">'+esc(sess.subject)+', '+esc(sess.levelName)+'</span>'+
       '<span class="score" id="score" aria-label="Round score">'+sess.score+'<small> pts</small></span>'+
     '</div>'+
@@ -384,6 +406,9 @@ SCREENS.results = function(r){
   '</div>';
 };
 AFTER.results = function(r){
+  if(r.shown){ var e0 = document.getElementById("earned"); if(e0) e0.textContent = r.points;
+    var st = document.querySelectorAll("#bigstars .st"); for(var j=0;j<starsFor(r.correct);j++) st[j].classList.add("on"); return; }
+  r.shown = true;
   var n = starsFor(r.correct), holder = document.getElementById("bigstars"), el = document.getElementById("earned");
   var stars = holder ? holder.querySelectorAll(".st") : [];
   for(var i=0;i<n;i++){ (function(i){ setTimeout(function(){ if(stars[i]) stars[i].classList.add("on","pop"); playStar(i); }, reduceMotion?0:400+i*350); })(i); }
@@ -401,7 +426,7 @@ function confetti(){
 }
 
 SCREENS.review = function(rows){
-  return '<div class="stack"><button class="btn quiet" data-go="home">Back to subjects</button><h1>Your answers</h1>'+
+  return '<div class="stack"><h1>Your answers</h1>'+
     '<ol class="review">'+rows.map(function(a){
       var ok=a.is_correct;
       return '<li><div class="mk '+(ok?"good":"bad")+'">'+(ok?"Correct":"Incorrect")+'</div><p><b>'+esc(a.prompt)+'</b></p>'+
@@ -530,7 +555,7 @@ document.addEventListener("click",function(e){
   }
   if(a==="begin"){ startSession(pendingSubject, chosenLevel); return; }
   if(a==="next"){ if(sess.last) finish(); else loadQuestion(); return; }
-  if(a==="quit"){ if(confirm("End this round? Points from this round will not be saved.")){ sess=null; stopTimer(); go("home"); } return; }
+  if(a==="back"){ goBack(); return; }
   if(a==="flag"){
     var reason = prompt("What is wrong with this question? For example, the answer is wrong or the wording is unclear.");
     if(reason===null) return;
