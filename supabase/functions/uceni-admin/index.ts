@@ -1,7 +1,13 @@
 // Uceni Games admin API: question approval, flags, complaints and the figures NCC may request.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 
-const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 3 });
+// Connect through the transaction pooler (port 6543) so any number of server copies share a few real database
+// connections. If the pooler cannot be reached, fall back to the direct connection. Either way each copy uses one
+// connection and closes it after 5 idle seconds, so connections never pile up and exhaust the database.
+const DB_OPTS = { prepare: false, max: 1, idle_timeout: 5, max_lifetime: 60 * 5, connect_timeout: 5 };
+const DIRECT_URL = Deno.env.get("SUPABASE_DB_URL")!;
+let sql = postgres(DIRECT_URL.replace(":5432/", ":6543/"), DB_OPTS);
+try { await sql`select 1`; console.log("uceni-admin database: pooler"); } catch (_) { await sql.end({ timeout: 1 }).catch(() => {}); sql = postgres(DIRECT_URL, DB_OPTS); console.log("uceni-admin database: direct"); }
 const TOKEN_HOURS = 12;
 
 const cors = {

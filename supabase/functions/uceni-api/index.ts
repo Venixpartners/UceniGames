@@ -3,7 +3,13 @@
 // so nothing a phone sends can inflate Knowledge Points.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 
-const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 3 });
+// Connect through the transaction pooler (port 6543) so any number of server copies share a few real database
+// connections. If the pooler cannot be reached, fall back to the direct connection. Either way each copy uses one
+// connection and closes it after 5 idle seconds, so connections never pile up and exhaust the database.
+const DB_OPTS = { prepare: false, max: 1, idle_timeout: 5, max_lifetime: 60 * 5, connect_timeout: 5 };
+const DIRECT_URL = Deno.env.get("SUPABASE_DB_URL")!;
+let sql = postgres(DIRECT_URL.replace(":5432/", ":6543/"), DB_OPTS);
+try { await sql`select 1`; console.log("uceni-api database: pooler"); } catch (_) { await sql.end({ timeout: 1 }).catch(() => {}); sql = postgres(DIRECT_URL, DB_OPTS); console.log("uceni-api database: direct"); }
 
 const GRACE_MS = 4000;            // allowance for slow networks
 const SESSION_SIZE = 10;
@@ -241,8 +247,8 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     return await sql.begin(async (tx) => {
       const s = (await tx`select * from uceni.sessions where id = ${String(body.session_id)} and learner_id = ${l.id} for update`)[0];
       if (!s || s.status !== "active") fail(400, "This session has ended.");
-      if (!s.served_at) fail(400, "Load the question first.");
       if (Number(body.index) !== s.current_index) fail(409, "That question has already been answered.");
+      if (!s.served_at) fail(400, "Load the question first.");
       const q = (await tx`select * from uceni.questions where id = ${s.question_ids[s.current_index]}`)[0];
       const elapsed = Date.now() - new Date(s.served_at).getTime();
       const timedOut = elapsed > s.question_seconds * 1000 + GRACE_MS;
