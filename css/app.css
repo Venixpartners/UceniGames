@@ -314,3 +314,76 @@ nav.tabs button[aria-current="page"]{font-weight:700;border-top-color:var(--ink)
 .mastery-path{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.25rem;margin:.65rem 0}
 .mastery-path span{font-size:.65rem;line-height:1.35;text-align:center;padding:.45rem .1rem;border-radius:7px;background:var(--soft);border:1px solid var(--line)}
 .mastery-path span.earned{background:rgba(29,165,104,.12);border-color:var(--good);font-weight:700}
+
+
+/* Multi-device responsive layouts: small phones, tablets, laptops and desktop. */
+html{overflow-x:clip}
+body{overflow-wrap:break-word}
+img,svg,video{max-width:100%}
+.wrap{width:100%;min-width:0}
+button,input,select,textarea{max-width:100%}
+button{touch-action:manipulation}
+.field input{font-size:max(1rem,16px)}
+.connection-notice{position:sticky;top:0;z-index:9;background:#fff4ca;color:#47390c;border-bottom:1px solid #e7cc70;text-align:center;padding:.65rem 1rem;font-size:.86rem}
+.install-tip{border:1px solid var(--line);border-radius:14px;padding:.85rem 1rem;margin:1rem 0;background:var(--soft)}
+.install-tip p{font-size:.85rem;margin:.25rem 0 .65rem}
+.install-tip .btn{width:auto;min-width:11rem;padding:.65rem .9rem}
+.quest-row{min-width:0}.quest-row small{overflow-wrap:anywhere}
+.game-hero,.player,.tile,.badge-tile{min-width:0}
+.chips b{font-size:clamp(1rem,3vw,1.45rem);overflow-wrap:anywhere}
+.podium .pd{min-width:0}
+.podium b{overflow:hidden;text-overflow:ellipsis}
+@media(max-width:360px){
+  .wrap{padding:.8rem .8rem 6.5rem}
+  .topbar{padding:.7rem .8rem 0}
+  .tiles{gap:.45rem}
+  .tile{padding:.65rem}
+  .modes{gap:.3rem}
+  .mode{padding:.65rem .2rem}
+  .mode .secs{font-size:1.45rem}
+  .game-hero{padding:1rem}
+  .game-hero h2{font-size:1.35rem}
+  .game-metrics{gap:.45rem}
+  .game-shortcuts{grid-template-columns:1fr}
+  .mastery-path{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hud2{flex-wrap:wrap}
+  .combo{white-space:normal}
+  .dots{gap:.2rem}
+  .dots i{width:.65rem;height:.65rem}
+  nav.tabs button{font-size:.78rem;min-height:3rem;padding:.65rem .1rem}
+}
+@media(min-width:700px){
+  .wrap,.topbar,nav.tabs .in{max-width:68rem}
+  .wrap{padding:1.5rem 2rem 7rem}
+  .topbar{padding:1rem 2rem 0}
+  .tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .badge-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .game-hub{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(17rem,1fr);align-items:start;gap:1rem}
+  .game-hub .game-hero{grid-column:1;grid-row:1 / span 2;min-height:18rem;padding:2rem}
+  .game-hub .game-hero h2{font-size:2rem}
+  .game-hub .game-metrics{grid-column:2;grid-row:1;margin:0}
+  .game-hub .game-section{grid-column:2;grid-row:2;margin:0}
+  .game-hub .game-shortcuts{grid-column:1 / -1}
+  .player{padding:1.5rem}
+  .game-shortcuts .btn{font-size:1rem}
+  nav.tabs button{min-height:3.3rem}
+  .wrap:has(.hud),.wrap:has(.results),.wrap:has(.opts),.wrap:has(.modes),.wrap:has(.hero),.wrap:has(.review),.wrap:has(.field){max-width:44rem}
+}
+@media(min-width:1100px){
+  .wrap,.topbar,nav.tabs .in{max-width:76rem}
+  .wrap{padding:2rem 3rem 6rem}
+  .topbar{padding:1rem 3rem 0}
+  .tile{min-height:12rem}
+  .game-hero{min-height:20rem}
+}
+@media(hover:none) and (pointer:coarse){
+  .btn,.opt,.tile,.mode,nav.tabs button,.avatar-picker button{min-height:44px}
+  .opt{padding:.95rem}
+}
+@media(orientation:landscape) and (max-height:520px){
+  .wrap{padding-bottom:4rem}
+  .hero{padding:1rem}
+  .hero-icon{height:45px}.hero-mark{height:40px}
+  .opts{gap:.3rem}.opt{padding:.45rem}
+  .clock{margin:.3rem 0}
+}
