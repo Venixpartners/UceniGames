@@ -23,4 +23,8 @@ assert.match(app,/Personal best/);
 assert.match(migration,/friend_challenges/);
 assert.match(migration,/expires_at/);
 assert.match(migration,/enable row level security/);
+assert.match(api, /body.practice_mode===true/, 'Adaptive practice must be explicit');
+assert.match(api, /a.is_correct=false and q.status='approved'/, 'Revision must use reviewed, approved missed questions');
+assert.match(app, /data-practice/, 'The personalised practice button must be connected');
+assert.match(app, /mastery-path/, 'Four-stage subject mastery path required');
 console.log('PASS: gamified JS syntax, 20-badge engine, server-derived quests, private friend challenge and blocked billing');
