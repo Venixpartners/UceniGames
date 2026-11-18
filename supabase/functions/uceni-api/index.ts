@@ -13,7 +13,7 @@ try { await sql`select 1`; console.log("uceni-api database: pooler"); } catch (_
 
 const GRACE_MS = 4000;            // allowance for slow networks
 const SESSION_SIZE = 10;
-const TOKEN_DAYS = 90;
+const TOKEN_DAYS = 14; // Free-preview session; not a verified telephone identity.
 // Until the aggregator or an SMS provider sends codes, OTP runs in test mode and the code is returned to the app.
 const OTP_LIVE = Deno.env.get("UCENI_OTP_MODE") === "live";
 // While billing is simulated, signing in gives full access. Set UCENI_BILLING_MODE=live to require a plan again.
@@ -77,18 +77,9 @@ async function access(learnerId: string) {
     await sql`update uceni.subscriptions set status = 'expired' where id = ${s.id}`;
     return null;
   }
-  // Mock automatic renewal: one charge per elapsed period, capped.
-  let expires = new Date(s.expires_at);
-  let n = 0;
-  while (expires <= new Date() && n < 31) { expires = new Date(expires.getTime() + s.days * 86400000); n++; }
-  await sql.begin(async (tx) => {
-    for (let i = 0; i < n; i++) {
-      await tx`insert into uceni.charges (subscription_id, learner_id, plan_id, amount, kind)
-               values (${s.id}, ${learnerId}, ${s.plan_id}, ${s.price}, 'renewal')`;
-    }
-    await tx`update uceni.subscriptions set expires_at = ${expires} where id = ${s.id}`;
-  });
-  return { ...s, expires_at: expires };
+  // Never create charges or extend entitlements because somebody opened the site.
+  // Paid renewal must be confirmed by the telco/aggregator before access is extended.
+  return null;
 }
 
 function subView(s: any) {
@@ -97,7 +88,8 @@ function subView(s: any) {
 }
 
 async function profile(l: any) {
-  const sub = await access(l.id);
+  // A free-preview session must never trigger mock renewals or claim paid entitlement.
+  const sub = BILLING_LIVE ? await access(l.id) : null;
   const subjects = await sql`
     select s.id, s.name, coalesce(ls.points,0) as points, coalesce(ls.answered,0) as answered, coalesce(ls.correct,0) as correct
     from uceni.subjects s left join uceni.learner_subjects ls on ls.subject_id = s.id and ls.learner_id = ${l.id}
@@ -107,7 +99,7 @@ async function profile(l: any) {
   const last = l.streak_last ? new Date(l.streak_last) : null;
   const streakLive = last && (last.getTime() === new Date(today).getTime() || last.getTime() === yest.getTime());
   return {
-    phone: l.phone, display_name: l.display_name, hide_board: l.hide_board,
+    phone: l.phone.startsWith('guest_') ? 'Unverified free-play session' : l.phone, display_name: l.display_name, hide_board: l.hide_board,
     total_points: l.total_points, streak: streakLive ? l.streak_count : 0, sessions: l.sessions_completed,
     subscription: subView(sub),
     subjects: subjects.map((s: any) => ({ ...s, level: levelOf(s.points) })),
@@ -121,47 +113,27 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     return { plans: await sql`select id, name, price, days, keyword from uceni.plans order by sort` };
   },
 
-  async request_otp(_req, body) {
-    const phone = normalisePhone(body.phone);
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    await sql`insert into uceni.otp_codes (phone, code_hash, expires_at, attempts)
-              values (${phone}, ${await sha256(phone + code)}, now() + interval '10 minutes', 0)
-              on conflict (phone) do update set code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, created_at = now()`;
-    // In live mode the code is sent by SMS through the aggregator or SMS provider (to be connected).
-    return OTP_LIVE ? { sent: true } : { sent: true, test_code: code };
+  async request_otp(_req, _body) {
+    // No SMS provider is connected. Never return a real subscriber's verification code to a browser.
+    fail(503, "SMS verification is not available yet. Use free preview.");
   },
 
-  async verify_otp(_req, body) {
-    const phone = normalisePhone(body.phone);
-    const rows = await sql`select * from uceni.otp_codes where phone = ${phone}`;
-    if (!rows.length || new Date(rows[0].expires_at) < new Date()) fail(400, "That code has expired. Request a new one.");
-    if (rows[0].attempts >= 5) fail(429, "Too many attempts. Request a new code.");
-    if (rows[0].code_hash !== await sha256(phone + String(body.code ?? "").trim())) {
-      await sql`update uceni.otp_codes set attempts = attempts + 1 where phone = ${phone}`;
-      fail(400, "That code is not correct.");
-    }
-    await sql`delete from uceni.otp_codes where phone = ${phone}`;
-    const name = String(body.display_name ?? "").trim().slice(0, 24);
-    const learner = (await sql`
-      insert into uceni.learners (phone, display_name) values (${phone}, ${name})
-      on conflict (phone) do update set display_name = case when ${name} <> '' then ${name} else uceni.learners.display_name end
-      returning *`)[0];
-    const token = randomHex();
-    await sql`insert into uceni.learner_tokens (token_hash, learner_id, expires_at)
-              values (${await sha256(token)}, ${learner.id}, now() + ${TOKEN_DAYS + " days"}::interval)`;
-    return { token, profile: await profile(learner) };
+  async verify_otp(_req, _body) {
+    fail(503, "SMS verification is not available yet. Use free preview.");
   },
 
-  // Direct sign in with name and phone number. Only available until sign in codes go live.
+  // Free preview: collect an entered phone number but do not use it as proof of ownership.
+  // Create an independent guest account to prevent takeover of existing MSISDN-linked profiles.
+  // Paid entitlements and SMS recovery must require verified subscriber identity in a future release.
   async sign_in(_req, body) {
-    if (OTP_LIVE) fail(403, "Please sign in with the code sent to your phone.");
+    if (OTP_LIVE || BILLING_LIVE) fail(503, "Free preview login is unavailable in telco billing mode.");
     const name = String(body.display_name ?? "").trim().slice(0, 24);
     if (name.length < 2) fail(400, "Enter your name.");
-    const phone = normalisePhone(body.phone);
+    normalisePhone(body.phone); // format check only; do not persist unverified telephone numbers
+    const guestPhone = "guest_" + randomHex(16);
     const learner = (await sql`
-      insert into uceni.learners (phone, display_name, last_seen_at) values (${phone}, ${name}, now())
-      on conflict (phone) do update set display_name = ${name}, last_seen_at = now()
-      returning *`)[0];
+      insert into uceni.learners (phone, display_name, last_seen_at)
+      values (${guestPhone}, ${name}, now()) returning *`)[0];
     const token = randomHex();
     await sql`insert into uceni.learner_tokens (token_hash, learner_id, expires_at)
               values (${await sha256(token)}, ${learner.id}, now() + ${TOKEN_DAYS + " days"}::interval)`;
@@ -183,21 +155,9 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     return { ok: true };
   },
 
-  // Mock consent and charge. When the aggregator is connected, this starts their consent flow instead,
-  // and the subscription is created from their callback.
-  async subscribe(req, body) {
-    const l = await learnerFrom(req);
-    const plan = (await sql`select * from uceni.plans where id = ${String(body.plan_id)}`)[0];
-    if (!plan) fail(400, "Choose a plan.");
-    const current = await access(l.id);
-    await sql.begin(async (tx) => {
-      if (current) await tx`update uceni.subscriptions set status = 'expired', expires_at = now() where id = ${current.id}`;
-      const sub = (await tx`insert into uceni.subscriptions (learner_id, plan_id, status, channel, expires_at)
-                            values (${l.id}, ${plan.id}, 'active', 'web', now() + ${plan.days + " days"}::interval) returning *`)[0];
-      await tx`insert into uceni.charges (subscription_id, learner_id, plan_id, amount, kind)
-               values (${sub.id}, ${l.id}, ${plan.id}, ${plan.price}, 'initial')`;
-    });
-    return { profile: await profile(l) };
+  // No charge is permitted without an integrated and verified telco consent flow.
+  async subscribe(_req, _body) {
+    fail(503, "Airtime billing is not enabled. Uceni Games is free to play for now.");
   },
 
   async cancel(req) {
