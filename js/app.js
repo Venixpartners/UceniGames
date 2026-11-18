@@ -233,12 +233,31 @@ SCREENS.subscribed = function(){
   '</div>';
 };
 
+
+/* The Gamified Learning Experience */
+var AVATARS={brain:"🧠",star:"🌟",rocket:"🚀",owl:"🦉",lion:"🦁",book:"📚",globe:"🌍",lightning:"⚡"};
+var THEMES=[["Monday Maths Mission","maths"],["Tuesday Word Quest","english"],["Wednesday Science Lab","science"],["Thursday History Hero","history"],["Friday Digital Discovery","tech"],["Saturday World Explorer","geography"],["Sunday Wellness Quest","health"]];
+var invitedCode=(function(){try{return new URLSearchParams(location.search).get("challenge")||"";}catch(e){return "";}})(),activeFriend=null;
+function avatar(k){return AVATARS[k]||AVATARS.brain;}
+function themeToday(){var d=new Intl.DateTimeFormat("en-US",{weekday:"short",timeZone:"Africa/Lagos"}).format(new Date());return THEMES[({Mon:0,Tue:1,Wed:2,Thu:3,Fri:4,Sat:5,Sun:6}[d]||0)];}
+function gameHub(){
+ var g=P.game||{},daily=g.daily||[],won=(g.badges||[]).filter(function(x){return x.unlocked;}).length,t=themeToday();
+ return '<section class="game-hub"><div class="game-hero"><span class="eyebrow">THE GAMIFIED LEARNING EXPERIENCE</span><h2>Every question is an adventure ✨</h2><p>Build knowledge, collect badges and explore new subjects. No monetary prizes or extra charges.</p><button class="btn game-cta" data-theme="'+esc(t[1])+'">⚡ '+esc(t[0])+'</button></div>'+
+ '<div class="game-metrics"><div><b>🏅 '+won+'/20</b><span>badges earned</span></div><div><b>🎯 '+(g.weekly_points||0)+'</b><span>weekly points</span></div></div>'+
+ '<div class="game-section"><h2>Daily Brain Quests</h2>'+daily.map(function(x){return '<div class="quest-row '+(x.progress>=x.goal?'done':'')+'"><span>'+(x.progress>=x.goal?'✅':'✦')+'</span><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small></span><b>'+x.progress+'/'+x.goal+'</b></div>';}).join("")+
+ '<p class="small">Quests reset daily. Knowledge Points are earned through normal quiz scoring.</p></div>'+
+ '<div class="game-shortcuts"><button class="btn alt" data-go="achievements">🏅 Achievements</button><button class="btn alt" data-go="weekly">🏆 Weekly board</button></div></section>';
+}
+SCREENS.achievements=function(){var a=P.game&&P.game.badges||[];return '<div class="stack"><h1>🏅 Achievement Gallery</h1><p>Unlock 20 learning badges. They have no cash value or prizes.</p><div class="badge-grid">'+a.map(function(x){return '<div class="badge-tile '+(x.unlocked?'unlocked':'locked')+'"><span>'+(x.unlocked?'🏅':'🔒')+'</span><b>'+esc(x.name)+'</b><small>'+(x.unlocked?'Earned':'Keep learning')+'</small></div>';}).join("")+'</div><button class="btn alt" data-go="home">Back to subjects</button></div>';};
+SCREENS.weekly=function(d){if(!d)return '<div class="loading">Loading</div>';return '<div class="stack"><h1>🏆 Weekly Learning Board</h1><p>Weekly Knowledge Points. Only opted-in learners appear. No monetary rewards.</p><ol class="board">'+(d.top.length?d.top.map(function(x){return '<li'+(x.me?' class="me"':'')+'><span class="rk">'+x.rank+'</span><span>'+esc(x.name)+'</span><span class="pt">'+x.points+' pts</span></li>';}).join(""):'<li>No players yet.</li>')+'</ol><button class="btn alt" data-go="home">Back to subjects</button></div>';};
+function handleInvite(code){if(!P)return;api("challenge_lookup",{code:code}).then(function(d){var x=d.challenge,sub=P.subjects.filter(function(z){return z.id===x.subject_id;})[0];if(!sub)return;if(!confirm(x.display_name+" scored "+x.correct+"/10 on "+sub.name+". Try those same questions?"))return;activeFriend={code:code,name:x.display_name,score:x.correct};pendingSubject=x.subject_id;chosenLevel=x.level;go("difficulty");}).catch(function(e){alert(e.message);});}
+
 /* ---------- Home ---------- */
 function greet(){ var h=new Date().getHours(); return h<12?"Good morning":h<17?"Good afternoon":"Good evening"; }
 SCREENS.home = function(){
   var nm = P.display_name || "Learner";
   return '<div class="player">'+
-      '<div class="who"><span class="av">'+esc(nm.charAt(0).toUpperCase())+'</span><span><span class="small">'+greet()+'</span><b>'+esc(nm)+'</b></span></div>'+
+      '<div class="who"><span class="av">'+avatar(P.avatar)+'</span><span><span class="small">'+greet()+'</span><b>'+esc(nm)+'</b></span></div>'+
       '<div class="chips">'+
         '<div><b>'+P.total_points.toLocaleString()+'</b><span>points</span></div>'+
         '<div class="streak'+(P.streak?' lit':'')+'"><b>'+FLAME+P.streak+'</b><span>day streak</span></div>'+
@@ -247,6 +266,7 @@ SCREENS.home = function(){
       '<p class="goal">'+(P.streak?'Play a round today to keep your streak alive.':'Play a round today to light your streak.')+'</p>'+
     '</div>'+
     (!hasAccess()?'<div class="notice" style="margin-top:1.25rem">Your plan has ended. <button class="btn quiet" data-go="plans">Choose a plan</button> to keep learning.</div>':'')+
+    gameHub()+
     '<h2 style="margin-top:1.75rem">Pick a subject</h2>'+
     '<ul class="tiles">'+P.subjects.map(function(s){
       var l = s.level, pct = l.next ? Math.round((s.points-l.floor)/(l.next-l.floor)*100) : 100;
@@ -263,6 +283,7 @@ SCREENS.difficulty = function(){
   var subj = P.subjects.filter(function(s){ return s.id===pendingSubject; })[0];
   return '<div class="stack">'+
     '<div class="subhead"><span class="ico">'+icon(pendingSubject)+'</span><h1>'+esc(subj?subj.name:"Choose a level")+'</h1></div>'+
+    (activeFriend?'<div class="friend-banner">🤝 '+esc(activeFriend.name)+' scored '+activeFriend.score+'/10. Play the same questions.</div>':'')+
     '<p>Pick your challenge. Less time, more points.</p>'+
     '<ul class="modes" role="radiogroup" aria-label="Difficulty level">'+P.difficulty.map(function(d,i){
       return '<li><button class="mode" role="radio" aria-checked="'+(d.id===chosenLevel)+'" data-level="'+esc(d.id)+'">'+
