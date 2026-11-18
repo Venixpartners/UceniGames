@@ -16,6 +16,8 @@ assert.match(cfg, /billingLive:\s*false/, 'Client must advertise no paid billing
 assert.match(html, /Free preview: play without airtime charges/, 'Public banner must state free access');
 assert.match(app, /Your number is not verified/, 'Users must be informed about unverified numbers');
 assert.match(app, /if\(getToken\(\)\)/, 'Returning browser guest should restore session');
+assert.match(api, /const BILLING_LIVE = false/, 'Server-side billing must be hard-disabled');
+assert.match(api, /const OTP_LIVE = false/, 'SMS verification must not be advertised without provider');
 assert.match(api, /const guestPhone = "guest_" \+ randomHex\(16\)/, 'Phone input must never select existing identity');
 assert.match(api, /normalisePhone\(body.phone\); \/\/ format check only/, 'Validate, but do not store unverified numbers');
 assert.match(api, /startsWith\("guest_"\)/, 'Old unverified accounts must not remain accessible');
