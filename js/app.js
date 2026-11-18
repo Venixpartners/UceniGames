@@ -237,6 +237,7 @@ SCREENS.subscribed = function(){
 /* The Gamified Learning Experience */
 var AVATARS={brain:"🧠",star:"🌟",rocket:"🚀",owl:"🦉",lion:"🦁",book:"📚",globe:"🌍",lightning:"⚡"};
 var THEMES=[["Monday Maths Mission","maths"],["Tuesday Word Quest","english"],["Wednesday Science Lab","science"],["Thursday History Hero","history"],["Friday Digital Discovery","tech"],["Saturday World Explorer","geography"],["Sunday Wellness Quest","health"]];
+var pendingPractice=false;
 var invitedCode=(function(){try{return new URLSearchParams(location.search).get("challenge")||"";}catch(e){return "";}})(),activeFriend=null;
 function avatar(k){return AVATARS[k]||AVATARS.brain;}
 function themeToday(){var d=new Intl.DateTimeFormat("en-US",{weekday:"short",timeZone:"Africa/Lagos"}).format(new Date());return THEMES[({Mon:0,Tue:1,Wed:2,Thu:3,Fri:4,Sat:5,Sun:6}[d]||0)];}
@@ -284,7 +285,7 @@ SCREENS.difficulty = function(){
   return '<div class="stack">'+
     '<div class="subhead"><span class="ico">'+icon(pendingSubject)+'</span><h1>'+esc(subj?subj.name:"Choose a level")+'</h1></div>'+
     (activeFriend?'<div class="friend-banner">🤝 '+esc(activeFriend.name)+' scored '+activeFriend.score+'/10. Play the same questions.</div>':'')+
-    '<p>Pick your challenge. Less time, more points.</p>'+
+    '<p>'+(pendingPractice?'Personalised practice: missed questions come first, with ten timed questions as usual.':'Pick your challenge. Less time, more points.')+'</p>'+
     '<ul class="modes" role="radiogroup" aria-label="Difficulty level">'+P.difficulty.map(function(d,i){
       return '<li><button class="mode" role="radio" aria-checked="'+(d.id===chosenLevel)+'" data-level="'+esc(d.id)+'">'+
         '<span class="stars">'+star(true)+star(i>0)+star(i>1)+'</span>'+
@@ -305,8 +306,9 @@ function startSession(subjectId, level){
   if(!hasAccess()){ goTo("plans"); return; }
   level = level || chosenLevel;
   loading("Preparing your questions");
-  var friend=activeFriend;
-  api("start",{subject_id:subjectId, level:level,challenge_code:friend?friend.code:undefined}).then(function(d){
+  var friend=activeFriend,practice=pendingPractice&&!friend;
+  pendingPractice=false;
+  api("start",{subject_id:subjectId,level:level,challenge_code:friend?friend.code:undefined,practice_mode:practice}).then(function(d){
     activeFriend=null;
     sess = {id:d.session_id, subjectId:subjectId, levelId:level, levelName:d.level, subject:d.subject, total:d.total, seconds:d.question_seconds,
             ppc:d.points_per_correct||10, score:0, combo:0, best:0, marks:[], locked:false, q:null,friend:d.friend||null};
@@ -467,7 +469,9 @@ SCREENS.progress = function(){
     var l = s.level, acc = s.answered ? Math.round(s.correct/s.answered*100) : null;
     if(acc!==null && s.answered>=10 && acc<60) weak.push(s.name);
     var pct = l.next ? Math.round((s.points-l.floor)/(l.next-l.floor)*100) : 100;
+    var steps=[["Starter",0],["Achiever",300],["Expert",800],["Scholar",1600]];
     return '<div class="subj"><div class="top"><b>'+esc(s.name)+'</b><span>Rank: '+esc(l.name)+'</span></div>'+
+      '<div class="mastery-path" aria-label="Mastery milestones">'+steps.map(function(st){return '<span class="'+(s.points>=st[1]?'earned':'')+'">'+(s.points>=st[1]?'● ':'○ ')+st[0]+'</span>';}).join('')+'</div>'+
       '<div class="small">'+(s.answered? s.answered+' answered, '+acc+'% correct, '+s.points+' points':'Not started yet')+
       (g.best&&g.best[s.id]!==undefined?', Personal best '+g.best[s.id]+'/10':'')+
       (l.next? ', '+(l.next-s.points)+' points to '+l.next_name : '')+'</div>'+
@@ -476,7 +480,7 @@ SCREENS.progress = function(){
   var g=P.game||{},rec=g.recommendation;
   return '<h1>Your progress</h1>'+
     '<div class="game-section"><h2>🗺️ Your Learning Adventure</h2><p>Eight paths to master. Reach your next rank by earning learning points.</p></div>'+
-    (rec?'<div class="recommend-card"><b>✨ Personal practice</b><p>Practise '+esc(rec.name)+' to improve your '+rec.accuracy+'% accuracy.</p><button class="btn" data-theme="'+esc(rec.id)+'">Practise now</button></div>':'')+
+    (rec?'<div class="recommend-card"><b>✨ Personal practice</b><p>Practise '+esc(rec.name)+' to improve your '+rec.accuracy+'% accuracy.</p><button class="btn" data-practice="'+esc(rec.id)+'">Practise missed questions</button></div>':'')+
     '<div class="game-metrics"><div><b>🏅 '+(g.badges||[]).filter(function(b){return b.unlocked;}).length+'/20</b><span>badges</span></div><div><b>🏆 '+(g.weekly_points||0)+'</b><span>weekly points</span></div></div>'+
     '<div class="stats"><div><b>'+P.total_points.toLocaleString()+'</b>Knowledge Points</div><div><b>'+P.sessions+'</b>sessions</div><div><b>'+P.streak+'</b>day streak</div></div>'+
     (weak.length?'<div class="fb bad" style="margin-top:1.25rem"><strong>Worth more practice</strong>'+esc(weak.join(", "))+'</div>':'')+
@@ -556,14 +560,15 @@ function busy(btn,on){ if(btn){ btn.disabled=on; } }
 
 document.addEventListener("click",function(e){
   var t = e.target.closest("button"); if(!t) return;
-  if(t.dataset.theme){activeFriend=null;pendingSubject=t.dataset.theme;go("difficulty");return;}
+  if(t.dataset.practice){activeFriend=null;pendingPractice=true;pendingSubject=t.dataset.practice;go("difficulty");return;}
+  if(t.dataset.theme){activeFriend=null;pendingPractice=false;pendingSubject=t.dataset.theme;go("difficulty");return;}
   if(t.dataset.avatar){api("settings",{avatar:t.dataset.avatar}).then(function(d){P=d.profile;go("account");}).catch(function(e){alert(e.message);});return;}
   if(t.dataset.challenge){busy(t,true);api("challenge_create",{session_id:t.dataset.challenge}).then(function(d){var u=location.origin+"/?challenge="+encodeURIComponent(d.code);
     if(navigator.share)return navigator.share({title:"Uceni Learning Challenge",text:"Can you beat my educational trivia score? No prizes or charges.",url:u}).catch(function(){});
     if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(u).then(function(){alert("Link copied! Share with a friend.");});
     prompt("Copy your learning challenge link:",u);}).catch(function(e){alert(e.message);}).finally(function(){busy(t,false);});return;}
   if(t.dataset.go){ if(!C.billingLive && ["plans","confirm","subscribed"].includes(t.dataset.go)) { goTo("home"); return; } goTo(t.dataset.go); return; }
-  if(t.dataset.start){ if(!hasAccess()){ goTo("plans"); return; } pendingSubject=t.dataset.start; go("difficulty"); return; }
+  if(t.dataset.start){ if(!hasAccess()){ goTo("plans"); return; } pendingPractice=false;pendingSubject=t.dataset.start; go("difficulty"); return; }
   if(t.dataset.again){ startSession(t.dataset.again, t.dataset.lv); return; }
   if(t.dataset.level){ chosenLevel=t.dataset.level; try{ localStorage.setItem("uceni_level",chosenLevel); }catch(err){} Array.prototype.forEach.call(app.querySelectorAll("[data-level]"),function(b){b.setAttribute("aria-checked",b.dataset.level===chosenLevel);}); return; }
   if(t.dataset.review){ loading(); api("review",{session_id:t.dataset.review}).then(function(d){ go("review",d.answers); }).catch(function(err){ showError(err,"home"); }); return; }
