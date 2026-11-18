@@ -44,6 +44,23 @@ const done=success(await request('finish',a.token,{session_id:s.session_id}),'fi
 assert.equal(done.total,10);
 const review=success(await request('review',a.token,{session_id:s.session_id}),'review round');
 assert.equal(review.answers.length,10);
+// Validate every subject and level can select a question; abandoned rounds do not award points.
+for(const subject_id of ['maths','english','science','history','geography','health','tech','gk']){
+  for(const level of ['beginner','intermediate','advanced']){
+    const started=success(await request('start',a.token,{subject_id,level}),subject_id+'/'+level+' start');
+    assert.equal(started.total,10);
+    const question=success(await request('question',a.token,{session_id:started.session_id}),subject_id+'/'+level+' question');
+    assert.equal(question.options.length,4);
+    assert.ok(question.prompt && question.prompt.length>5);
+  }
+}
+const adminUrl=config.match(/adminUrl:\s*"([^"]+)"/)?.[1];
+assert.ok(adminUrl);
+const missingAuth=await request('stats',null,{},adminUrl);
+assert.equal(missingAuth.status,401,'admin stats require a session');
+const invalidLogin=await request('login',null,{email:'qa-nonexistent-uceni-test@example.invalid',password:'deliberately-wrong'},adminUrl);
+assert.equal(invalidLogin.status,401,'admin must reject invalid credentials');
+
 const afterA=success(await request('me',a.token),'A profile').profile;
 const afterB=success(await request('me',b.token),'B profile').profile;
 assert.equal(afterA.sessions,1);
@@ -52,7 +69,4 @@ assert.equal(afterA.billing_live,false);
 assert.equal(afterA.subscription,null);
 success(await request('sign_out',a.token),'sign out A');
 assert.equal((await request('me',a.token)).status,401,'signed-out token must be revoked');
-const adminUrl=config.match(/adminUrl:\s*"([^"]+)"/)?.[1];
-assert.ok(adminUrl);
-assert.equal((await request('stats',null,{},adminUrl)).status,401,'admin stats must reject unauthenticated calls');
 console.log('PASS: production free-preview guest isolation, 10-question gameplay, review, API authorisation and no paid access');
