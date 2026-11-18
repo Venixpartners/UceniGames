@@ -2,6 +2,8 @@ name: Uceni one-time production E2E smoke
 on:
   push:
     branches: [qa/live-smoke-run-20261118]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
