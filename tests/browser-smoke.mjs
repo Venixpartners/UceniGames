@@ -17,15 +17,15 @@ try{
   await page.locator('button[data-go="achievements"]').click();
   await page.getByText('Achievement Gallery').waitFor({timeout:10000});
   assert.equal(await page.locator('.badge-tile').count(),20);
-  await page.locator('button[data-go="home"]').click();
+  await page.getByRole('button',{name:'Back to subjects'}).click();
   await page.locator('button[data-go="weekly"]').click();
   await page.getByText('Weekly Learning Board').waitFor({timeout:10000});
-  await page.locator('button[data-go="home"]').click();
+  await page.getByRole('button',{name:'Back to subjects'}).click();
   await page.locator('button[data-go="account"]').click();
   await page.locator('button[data-act="hide"]').click();
   await page.locator('button[data-avatar="rocket"]').click();
   await page.locator('button[data-avatar="rocket"][aria-pressed="true"]').waitFor({timeout:10000});
-  await page.locator('button[data-go="home"]').click();
+  await page.locator('#tabs button[data-go="home"]').click();
   await page.locator('button[data-start="maths"]').click();
   await page.locator('button[data-act="begin"]').click();
   for(let i=0;i<10;i++){
