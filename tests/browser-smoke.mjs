@@ -25,6 +25,7 @@ try{
     await page.locator('button[data-act="next"]').click();
   }
   await page.getByText('Knowledge Points',{exact:true}).waitFor({timeout:30000});
+  await page.getByRole('button',{name:'Subjects'}).click();
   await page.locator('button[data-go="progress"]').click();
   await page.getByText('Your progress').waitFor({timeout:15000});
   await page.locator('button[data-go="account"]').click();
