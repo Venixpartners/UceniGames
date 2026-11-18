@@ -464,7 +464,7 @@ SCREENS.review = function(rows){
 
 /* ---------- Progress, board, account ---------- */
 SCREENS.progress = function(){
-  var weak = [];
+  var weak = [],g=P.game||{},rec=g.recommendation;
   var rows = P.subjects.map(function(s){
     var l = s.level, acc = s.answered ? Math.round(s.correct/s.answered*100) : null;
     if(acc!==null && s.answered>=10 && acc<60) weak.push(s.name);
@@ -477,7 +477,6 @@ SCREENS.progress = function(){
       (l.next? ', '+(l.next-s.points)+' points to '+l.next_name : '')+'</div>'+
       '<div class="bar" role="progressbar" aria-label="Progress to next rank" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><i style="width:'+pct+'%"></i></div></div>';
   }).join("");
-  var g=P.game||{},rec=g.recommendation;
   return '<h1>Your progress</h1>'+
     '<div class="game-section"><h2>🗺️ Your Learning Adventure</h2><p>Eight paths to master. Reach your next rank by earning learning points.</p></div>'+
     (rec?'<div class="recommend-card"><b>✨ Personal practice</b><p>Practise '+esc(rec.name)+' to improve your '+rec.accuracy+'% accuracy.</p><button class="btn" data-practice="'+esc(rec.id)+'">Practise missed questions</button></div>':'')+
