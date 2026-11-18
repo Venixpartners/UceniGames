@@ -92,7 +92,7 @@ var app = document.getElementById("app"), tabs = document.getElementById("tabs")
 if(!C.billingLive) document.getElementById("banner").hidden = false;
 
 /* ---------- Back navigation ---------- */
-var PARENT = {home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
+var PARENT = {achievements:"home",weekly:"home",home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
   progress:"home", board:"home", account:"home", plans:"home", confirm:"plans", subscribed:"home",
   cancelled:"account", signup:"welcome", verify:"signup"};
 var lastResult = null, armed = false;
@@ -305,9 +305,11 @@ function startSession(subjectId, level){
   if(!hasAccess()){ goTo("plans"); return; }
   level = level || chosenLevel;
   loading("Preparing your questions");
-  api("start",{subject_id:subjectId, level:level}).then(function(d){
+  var friend=activeFriend;
+  api("start",{subject_id:subjectId, level:level,challenge_code:friend?friend.code:undefined}).then(function(d){
+    activeFriend=null;
     sess = {id:d.session_id, subjectId:subjectId, levelId:level, levelName:d.level, subject:d.subject, total:d.total, seconds:d.question_seconds,
-            ppc:d.points_per_correct||10, score:0, combo:0, best:0, marks:[], locked:false, q:null};
+            ppc:d.points_per_correct||10, score:0, combo:0, best:0, marks:[], locked:false, q:null,friend:d.friend||null};
     loadQuestion();
   }).catch(function(e){ if(e.status===402){ refreshProfile().then(function(){ go("plans"); }); } else showError(e,"home"); });
 }
@@ -397,7 +399,7 @@ function answer(k){
 function finish(){
   loading("Adding up your points");
   api("finish",{session_id:sess.id}).then(function(r){
-    r.subject = sess.subject; r.subject_id = sess.subjectId; r.level_id = sess.levelId; r.session_id = sess.id; r.marks = sess.marks; r.best = sess.best;
+    r.friend=sess.friend||null; r.subject = sess.subject; r.subject_id = sess.subjectId; r.level_id = sess.levelId; r.session_id = sess.id; r.marks = sess.marks; r.best = sess.best;
     sess = null;
     return refreshProfile().then(function(){ go("results",r); });
   }).catch(function(e){ showError(e,"home"); });
@@ -417,6 +419,7 @@ SCREENS.results = function(r){
     '<p>'+line+(r.best>=3?' Best run: '+r.best+' in a row.':'')+'</p>'+
     '<div class="earned"><span>+<b id="earned">0</b></span><small>Knowledge Points</small></div>'+
     (r.level_up?'<div class="rankup"><b>New rank</b>You are now '+esc(r.level_up)+' in '+esc(r.subject)+'.</div>':'')+
+    (r.friend?'<div class="friend-banner">🤝 '+esc(r.friend.name)+': '+r.friend.score+'/10. You: '+r.correct+'/10.</div>':'')+
     '<dl class="kv">'+
       '<div><dt>Correct answers ('+r.points_per_correct+' each)</dt><dd>'+b.correct+'</dd></div>'+
       '<div><dt>Quick answer bonus</dt><dd>'+b.quick+'</dd></div>'+
@@ -424,6 +427,7 @@ SCREENS.results = function(r){
       (b.streak?'<div><dt>Daily streak</dt><dd>'+b.streak+'</dd></div>':'')+
     '</dl>'+
     '<div class="row" style="margin-top:1.5rem"><button class="btn" data-again="'+esc(r.subject_id)+'" data-lv="'+esc(r.level_id)+'" data-autofocus>Play again</button><button class="btn alt" data-go="home">Subjects</button></div>'+
+    '<button class="btn alt" data-challenge="'+esc(r.session_id)+'">🤝 Challenge a friend</button>'+
     '<button class="btn quiet" data-review="'+esc(r.session_id)+'">Review my answers</button>'+
   '</div>';
 };
@@ -465,10 +469,15 @@ SCREENS.progress = function(){
     var pct = l.next ? Math.round((s.points-l.floor)/(l.next-l.floor)*100) : 100;
     return '<div class="subj"><div class="top"><b>'+esc(s.name)+'</b><span>Rank: '+esc(l.name)+'</span></div>'+
       '<div class="small">'+(s.answered? s.answered+' answered, '+acc+'% correct, '+s.points+' points':'Not started yet')+
+      (g.best&&g.best[s.id]!==undefined?', Personal best '+g.best[s.id]+'/10':'')+
       (l.next? ', '+(l.next-s.points)+' points to '+l.next_name : '')+'</div>'+
       '<div class="bar" role="progressbar" aria-label="Progress to next rank" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><i style="width:'+pct+'%"></i></div></div>';
   }).join("");
+  var g=P.game||{},rec=g.recommendation;
   return '<h1>Your progress</h1>'+
+    '<div class="game-section"><h2>🗺️ Your Learning Adventure</h2><p>Eight paths to master. Reach your next rank by earning learning points.</p></div>'+
+    (rec?'<div class="recommend-card"><b>✨ Personal practice</b><p>Practise '+esc(rec.name)+' to improve your '+rec.accuracy+'% accuracy.</p><button class="btn" data-theme="'+esc(rec.id)+'">Practise now</button></div>':'')+
+    '<div class="game-metrics"><div><b>🏅 '+(g.badges||[]).filter(function(b){return b.unlocked;}).length+'/20</b><span>badges</span></div><div><b>🏆 '+(g.weekly_points||0)+'</b><span>weekly points</span></div></div>'+
     '<div class="stats"><div><b>'+P.total_points.toLocaleString()+'</b>Knowledge Points</div><div><b>'+P.sessions+'</b>sessions</div><div><b>'+P.streak+'</b>day streak</div></div>'+
     (weak.length?'<div class="fb bad" style="margin-top:1.25rem"><strong>Worth more practice</strong>'+esc(weak.join(", "))+'</div>':'')+
     '<div style="margin-top:1rem">'+rows+'</div>';
@@ -499,6 +508,7 @@ SCREENS.account = function(){
       '<div><dt>Plan</dt><dd>'+(s?esc(s.plan_name)+", "+naira(s.price)+" "+PER[s.plan_id]:"None")+'</dd></div>'+
       '<div><dt>Status</dt><dd>'+status+'</dd></div>'+
     '</dl>'+
+    '<h2 style="margin-top:1rem">Choose your avatar</h2><div class="avatar-picker">'+Object.keys(AVATARS).map(function(k){return '<button data-avatar="'+k+'" aria-label="'+k+' avatar" aria-pressed="'+(P.avatar===k)+'">'+avatar(k)+'</button>';}).join('')+'</div>'+
     '<label class="field" style="margin-top:1.25rem"><span>Display name</span><input id="dname2" type="text" maxlength="24" value="'+esc(P.display_name)+'"></label>'+
     '<button class="btn alt" style="margin-top:.6rem" data-act="save_name">Save name</button>'+
     '<div class="toggle" style="margin-top:.75rem"><span>Sound effects</span><button class="sw" role="switch" aria-checked="'+soundOn+'" aria-label="Sound effects" data-act="sound"></button></div>'+
@@ -523,6 +533,7 @@ function refreshProfile(){ return api("me").then(function(d){ P = d.profile; ret
 function loadPlans(){ return plans.length ? Promise.resolve(plans) : api("plans").then(function(d){ plans = d.plans; return plans; }); }
 
 function goTo(screen){
+  if(screen==="weekly"){go("weekly",null);api("weekly_board").then(function(d){if(current==="weekly")go("weekly",d);}).catch(function(e){showError(e,"home");});return;}
   if(screen==="board"){ go("board",null); api("board").then(function(d){ if(current==="board") go("board",d); }).catch(function(e){ showError(e,"board"); }); return; }
   if(screen==="plans"||screen==="confirm"){ loadPlans().then(function(){ go(screen); }).catch(function(e){ showError(e,"home"); }); return; }
   if(screen==="signup"||screen==="welcome"){ go(screen); return; }
