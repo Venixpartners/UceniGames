@@ -61,6 +61,27 @@ assert.equal(missingAuth.status,401,'admin stats require a session');
 const invalidLogin=await request('login',null,{email:'qa-nonexistent-uceni-test@example.invalid',password:'deliberately-wrong'},adminUrl);
 assert.equal(invalidLogin.status,401,'admin must reject invalid credentials');
 
+// Gamified Learning Experience: achievements, daily quests, avatar and friend challenge.
+const gameBefore=success(await request('me',a.token),'gamified profile').profile;
+assert.equal(gameBefore.game.badges.length,20,'Exactly twenty achievement badges');
+assert.equal(gameBefore.game.daily.length,3,'Three daily quests');
+assert.ok(gameBefore.game.weekly_points>=0);
+const savedAvatar=success(await request('settings',a.token,{avatar:'rocket'}),'set avatar');
+assert.equal(savedAvatar.profile.avatar,'rocket');
+assert.equal((await request('settings',a.token,{avatar:'not-allowed'})).status,400,'reject unknown avatar');
+const weekly=success(await request('weekly_board',a.token),'weekly learning board');
+assert.ok(Array.isArray(weekly.top),'weekly board array');
+const challenge=success(await request('challenge_create',a.token,{session_id:s.session_id}),'share completed round');
+assert.match(challenge.code,/^[a-f0-9]{24}$/);
+const lookup=success(await request('challenge_lookup',b.token,{code:challenge.code}),'lookup friend challenge').challenge;
+assert.equal(lookup.subject_id,'maths');
+const friend=success(await request('start',b.token,{subject_id:'maths',level:'beginner',challenge_code:challenge.code}),'friend starts same quiz');
+assert.equal(friend.friend.score,done.correct);
+const opponentQuestion=success(await request('question',b.token,{session_id:friend.session_id}),'friend question');
+const originalReview=success(await request('review',a.token,{session_id:s.session_id}),'original review');
+assert.equal(opponentQuestion.question_id,originalReview.answers[0].question_id,'same first question for both players');
+assert.equal((await request('challenge_lookup',b.token,{code:'invalid'})).status,400,'reject invalid challenge');
+
 const afterA=success(await request('me',a.token),'A profile').profile;
 const afterB=success(await request('me',b.token),'B profile').profile;
 assert.equal(afterA.sessions,1);
