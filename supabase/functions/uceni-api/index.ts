@@ -235,9 +235,22 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       if(!challenge) fail(404,"This challenge has expired or is unavailable.");
       if(challenge.subject_id!==subject.id || challenge.level!==level.id) fail(400,"Challenge subject or level mismatch.");
     }
-    const qs = challenge ? challenge.question_ids.map((id:string)=>({id})) :
-      await sql`select id from uceni.questions where subject_id = ${subject.id} and level = ${level.id} and status = 'approved'
-                         order by random() limit ${SESSION_SIZE}`;
+    // Optional adaptive revision, not a paid advantage. Review up to five missed
+    // questions from prior rounds, then fill to the same approved 10-question format.
+    const practise=body.practice_mode===true && !challenge;
+    const missed=practise ? await sql`
+      select q.id from uceni.answers a
+      join uceni.sessions prev on prev.id=a.session_id
+      join uceni.questions q on q.id=a.question_id
+      where prev.learner_id=${l.id} and prev.subject_id=${subject.id} and prev.level=${level.id}
+        and a.is_correct=false and q.status='approved'
+      group by q.id order by max(a.answered_at) desc limit 5` : [];
+    const excluded=missed.map((q:any)=>q.id);
+    const remainder=challenge ? [] : await sql`
+      select id from uceni.questions where subject_id=${subject.id} and level=${level.id}
+      and status='approved' and id <> all(${sql.array(excluded)}::uuid[])
+      order by random() limit ${SESSION_SIZE - excluded.length}`;
+    const qs = challenge ? challenge.question_ids.map((id:string)=>({id})) : [...missed,...remainder];
     if (qs.length < SESSION_SIZE) fail(409, "Questions at this level are being prepared. Try another level.");
     await sql`update uceni.sessions set status = 'abandoned' where learner_id = ${l.id} and status = 'active'`;
     const ids = qs.map((q: any) => q.id);
