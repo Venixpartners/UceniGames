@@ -1,10 +1,28 @@
 {
-  "name": "Uceni Games",
-  "short_name": "Uceni",
-  "description": "Learn. Think. Grow.",
+  "name": "Uceni Games — The Gamified Learning Experience",
+  "short_name": "Uceni Games",
+  "description": "Free educational trivia, daily quests, knowledge badges and personalised learning.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "theme_color": "#132554",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "id": "/",
+  "scope": "/",
+  "orientation": "any",
+  "categories": [
+    "education",
+    "games"
+  ],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ]
 }
