@@ -92,7 +92,7 @@ var app = document.getElementById("app"), tabs = document.getElementById("tabs")
 if(!C.billingLive) document.getElementById("banner").hidden = false;
 
 /* ---------- Back navigation ---------- */
-var PARENT = {home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
+var PARENT = {achievements:"home",weekly:"home",home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
   progress:"home", board:"home", account:"home", plans:"home", confirm:"plans", subscribed:"home",
   cancelled:"account", signup:"welcome", verify:"signup"};
 var lastResult = null, armed = false;
@@ -233,12 +233,31 @@ SCREENS.subscribed = function(){
   '</div>';
 };
 
+
+/* The Gamified Learning Experience */
+var AVATARS={brain:"🧠",star:"🌟",rocket:"🚀",owl:"🦉",lion:"🦁",book:"📚",globe:"🌍",lightning:"⚡"};
+var THEMES=[["Monday Maths Mission","maths"],["Tuesday Word Quest","english"],["Wednesday Science Lab","science"],["Thursday History Hero","history"],["Friday Digital Discovery","tech"],["Saturday World Explorer","geography"],["Sunday Wellness Quest","health"]];
+var invitedCode=(function(){try{return new URLSearchParams(location.search).get("challenge")||"";}catch(e){return "";}})(),activeFriend=null;
+function avatar(k){return AVATARS[k]||AVATARS.brain;}
+function themeToday(){var d=new Intl.DateTimeFormat("en-US",{weekday:"short",timeZone:"Africa/Lagos"}).format(new Date());return THEMES[({Mon:0,Tue:1,Wed:2,Thu:3,Fri:4,Sat:5,Sun:6}[d]||0)];}
+function gameHub(){
+ var g=P.game||{},daily=g.daily||[],won=(g.badges||[]).filter(function(x){return x.unlocked;}).length,t=themeToday();
+ return '<section class="game-hub"><div class="game-hero"><span class="eyebrow">THE GAMIFIED LEARNING EXPERIENCE</span><h2>Every question is an adventure ✨</h2><p>Build knowledge, collect badges and explore new subjects. No monetary prizes or extra charges.</p><button class="btn game-cta" data-theme="'+esc(t[1])+'">⚡ '+esc(t[0])+'</button></div>'+
+ '<div class="game-metrics"><div><b>🏅 '+won+'/20</b><span>badges earned</span></div><div><b>🎯 '+(g.weekly_points||0)+'</b><span>weekly points</span></div></div>'+
+ '<div class="game-section"><h2>Daily Brain Quests</h2>'+daily.map(function(x){return '<div class="quest-row '+(x.progress>=x.goal?'done':'')+'"><span>'+(x.progress>=x.goal?'✅':'✦')+'</span><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small></span><b>'+x.progress+'/'+x.goal+'</b></div>';}).join("")+
+ '<p class="small">Quests reset daily. Knowledge Points are earned through normal quiz scoring.</p></div>'+
+ '<div class="game-shortcuts"><button class="btn alt" data-go="achievements">🏅 Achievements</button><button class="btn alt" data-go="weekly">🏆 Weekly board</button></div></section>';
+}
+SCREENS.achievements=function(){var a=P.game&&P.game.badges||[];return '<div class="stack"><h1>🏅 Achievement Gallery</h1><p>Unlock 20 learning badges. They have no cash value or prizes.</p><div class="badge-grid">'+a.map(function(x){return '<div class="badge-tile '+(x.unlocked?'unlocked':'locked')+'"><span>'+(x.unlocked?'🏅':'🔒')+'</span><b>'+esc(x.name)+'</b><small>'+(x.unlocked?'Earned':'Keep learning')+'</small></div>';}).join("")+'</div><button class="btn alt" data-go="home">Back to subjects</button></div>';};
+SCREENS.weekly=function(d){if(!d)return '<div class="loading">Loading</div>';return '<div class="stack"><h1>🏆 Weekly Learning Board</h1><p>Weekly Knowledge Points. Only opted-in learners appear. No monetary rewards.</p><ol class="board">'+(d.top.length?d.top.map(function(x){return '<li'+(x.me?' class="me"':'')+'><span class="rk">'+x.rank+'</span><span>'+esc(x.name)+'</span><span class="pt">'+x.points+' pts</span></li>';}).join(""):'<li>No players yet.</li>')+'</ol><button class="btn alt" data-go="home">Back to subjects</button></div>';};
+function handleInvite(code){if(!P)return;api("challenge_lookup",{code:code}).then(function(d){var x=d.challenge,sub=P.subjects.filter(function(z){return z.id===x.subject_id;})[0];if(!sub)return;if(!confirm(x.display_name+" scored "+x.correct+"/10 on "+sub.name+". Try those same questions?"))return;activeFriend={code:code,name:x.display_name,score:x.correct};pendingSubject=x.subject_id;chosenLevel=x.level;go("difficulty");}).catch(function(e){alert(e.message);});}
+
 /* ---------- Home ---------- */
 function greet(){ var h=new Date().getHours(); return h<12?"Good morning":h<17?"Good afternoon":"Good evening"; }
 SCREENS.home = function(){
   var nm = P.display_name || "Learner";
   return '<div class="player">'+
-      '<div class="who"><span class="av">'+esc(nm.charAt(0).toUpperCase())+'</span><span><span class="small">'+greet()+'</span><b>'+esc(nm)+'</b></span></div>'+
+      '<div class="who"><span class="av">'+avatar(P.avatar)+'</span><span><span class="small">'+greet()+'</span><b>'+esc(nm)+'</b></span></div>'+
       '<div class="chips">'+
         '<div><b>'+P.total_points.toLocaleString()+'</b><span>points</span></div>'+
         '<div class="streak'+(P.streak?' lit':'')+'"><b>'+FLAME+P.streak+'</b><span>day streak</span></div>'+
@@ -247,6 +266,7 @@ SCREENS.home = function(){
       '<p class="goal">'+(P.streak?'Play a round today to keep your streak alive.':'Play a round today to light your streak.')+'</p>'+
     '</div>'+
     (!hasAccess()?'<div class="notice" style="margin-top:1.25rem">Your plan has ended. <button class="btn quiet" data-go="plans">Choose a plan</button> to keep learning.</div>':'')+
+    gameHub()+
     '<h2 style="margin-top:1.75rem">Pick a subject</h2>'+
     '<ul class="tiles">'+P.subjects.map(function(s){
       var l = s.level, pct = l.next ? Math.round((s.points-l.floor)/(l.next-l.floor)*100) : 100;
@@ -263,6 +283,7 @@ SCREENS.difficulty = function(){
   var subj = P.subjects.filter(function(s){ return s.id===pendingSubject; })[0];
   return '<div class="stack">'+
     '<div class="subhead"><span class="ico">'+icon(pendingSubject)+'</span><h1>'+esc(subj?subj.name:"Choose a level")+'</h1></div>'+
+    (activeFriend?'<div class="friend-banner">🤝 '+esc(activeFriend.name)+' scored '+activeFriend.score+'/10. Play the same questions.</div>':'')+
     '<p>Pick your challenge. Less time, more points.</p>'+
     '<ul class="modes" role="radiogroup" aria-label="Difficulty level">'+P.difficulty.map(function(d,i){
       return '<li><button class="mode" role="radio" aria-checked="'+(d.id===chosenLevel)+'" data-level="'+esc(d.id)+'">'+
@@ -284,9 +305,11 @@ function startSession(subjectId, level){
   if(!hasAccess()){ goTo("plans"); return; }
   level = level || chosenLevel;
   loading("Preparing your questions");
-  api("start",{subject_id:subjectId, level:level}).then(function(d){
+  var friend=activeFriend;
+  api("start",{subject_id:subjectId, level:level,challenge_code:friend?friend.code:undefined}).then(function(d){
+    activeFriend=null;
     sess = {id:d.session_id, subjectId:subjectId, levelId:level, levelName:d.level, subject:d.subject, total:d.total, seconds:d.question_seconds,
-            ppc:d.points_per_correct||10, score:0, combo:0, best:0, marks:[], locked:false, q:null};
+            ppc:d.points_per_correct||10, score:0, combo:0, best:0, marks:[], locked:false, q:null,friend:d.friend||null};
     loadQuestion();
   }).catch(function(e){ if(e.status===402){ refreshProfile().then(function(){ go("plans"); }); } else showError(e,"home"); });
 }
@@ -376,7 +399,7 @@ function answer(k){
 function finish(){
   loading("Adding up your points");
   api("finish",{session_id:sess.id}).then(function(r){
-    r.subject = sess.subject; r.subject_id = sess.subjectId; r.level_id = sess.levelId; r.session_id = sess.id; r.marks = sess.marks; r.best = sess.best;
+    r.friend=sess.friend||null; r.subject = sess.subject; r.subject_id = sess.subjectId; r.level_id = sess.levelId; r.session_id = sess.id; r.marks = sess.marks; r.best = sess.best;
     sess = null;
     return refreshProfile().then(function(){ go("results",r); });
   }).catch(function(e){ showError(e,"home"); });
@@ -396,6 +419,7 @@ SCREENS.results = function(r){
     '<p>'+line+(r.best>=3?' Best run: '+r.best+' in a row.':'')+'</p>'+
     '<div class="earned"><span>+<b id="earned">0</b></span><small>Knowledge Points</small></div>'+
     (r.level_up?'<div class="rankup"><b>New rank</b>You are now '+esc(r.level_up)+' in '+esc(r.subject)+'.</div>':'')+
+    (r.friend?'<div class="friend-banner">🤝 '+esc(r.friend.name)+': '+r.friend.score+'/10. You: '+r.correct+'/10.</div>':'')+
     '<dl class="kv">'+
       '<div><dt>Correct answers ('+r.points_per_correct+' each)</dt><dd>'+b.correct+'</dd></div>'+
       '<div><dt>Quick answer bonus</dt><dd>'+b.quick+'</dd></div>'+
@@ -403,6 +427,7 @@ SCREENS.results = function(r){
       (b.streak?'<div><dt>Daily streak</dt><dd>'+b.streak+'</dd></div>':'')+
     '</dl>'+
     '<div class="row" style="margin-top:1.5rem"><button class="btn" data-again="'+esc(r.subject_id)+'" data-lv="'+esc(r.level_id)+'" data-autofocus>Play again</button><button class="btn alt" data-go="home">Subjects</button></div>'+
+    '<button class="btn alt" data-challenge="'+esc(r.session_id)+'">🤝 Challenge a friend</button>'+
     '<button class="btn quiet" data-review="'+esc(r.session_id)+'">Review my answers</button>'+
   '</div>';
 };
@@ -444,10 +469,15 @@ SCREENS.progress = function(){
     var pct = l.next ? Math.round((s.points-l.floor)/(l.next-l.floor)*100) : 100;
     return '<div class="subj"><div class="top"><b>'+esc(s.name)+'</b><span>Rank: '+esc(l.name)+'</span></div>'+
       '<div class="small">'+(s.answered? s.answered+' answered, '+acc+'% correct, '+s.points+' points':'Not started yet')+
+      (g.best&&g.best[s.id]!==undefined?', Personal best '+g.best[s.id]+'/10':'')+
       (l.next? ', '+(l.next-s.points)+' points to '+l.next_name : '')+'</div>'+
       '<div class="bar" role="progressbar" aria-label="Progress to next rank" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><i style="width:'+pct+'%"></i></div></div>';
   }).join("");
+  var g=P.game||{},rec=g.recommendation;
   return '<h1>Your progress</h1>'+
+    '<div class="game-section"><h2>🗺️ Your Learning Adventure</h2><p>Eight paths to master. Reach your next rank by earning learning points.</p></div>'+
+    (rec?'<div class="recommend-card"><b>✨ Personal practice</b><p>Practise '+esc(rec.name)+' to improve your '+rec.accuracy+'% accuracy.</p><button class="btn" data-theme="'+esc(rec.id)+'">Practise now</button></div>':'')+
+    '<div class="game-metrics"><div><b>🏅 '+(g.badges||[]).filter(function(b){return b.unlocked;}).length+'/20</b><span>badges</span></div><div><b>🏆 '+(g.weekly_points||0)+'</b><span>weekly points</span></div></div>'+
     '<div class="stats"><div><b>'+P.total_points.toLocaleString()+'</b>Knowledge Points</div><div><b>'+P.sessions+'</b>sessions</div><div><b>'+P.streak+'</b>day streak</div></div>'+
     (weak.length?'<div class="fb bad" style="margin-top:1.25rem"><strong>Worth more practice</strong>'+esc(weak.join(", "))+'</div>':'')+
     '<div style="margin-top:1rem">'+rows+'</div>';
@@ -478,6 +508,7 @@ SCREENS.account = function(){
       '<div><dt>Plan</dt><dd>'+(s?esc(s.plan_name)+", "+naira(s.price)+" "+PER[s.plan_id]:"None")+'</dd></div>'+
       '<div><dt>Status</dt><dd>'+status+'</dd></div>'+
     '</dl>'+
+    '<h2 style="margin-top:1rem">Choose your avatar</h2><div class="avatar-picker">'+Object.keys(AVATARS).map(function(k){return '<button data-avatar="'+k+'" aria-label="'+k+' avatar" aria-pressed="'+(P.avatar===k)+'">'+avatar(k)+'</button>';}).join('')+'</div>'+
     '<label class="field" style="margin-top:1.25rem"><span>Display name</span><input id="dname2" type="text" maxlength="24" value="'+esc(P.display_name)+'"></label>'+
     '<button class="btn alt" style="margin-top:.6rem" data-act="save_name">Save name</button>'+
     '<div class="toggle" style="margin-top:.75rem"><span>Sound effects</span><button class="sw" role="switch" aria-checked="'+soundOn+'" aria-label="Sound effects" data-act="sound"></button></div>'+
@@ -502,6 +533,7 @@ function refreshProfile(){ return api("me").then(function(d){ P = d.profile; ret
 function loadPlans(){ return plans.length ? Promise.resolve(plans) : api("plans").then(function(d){ plans = d.plans; return plans; }); }
 
 function goTo(screen){
+  if(screen==="weekly"){go("weekly",null);api("weekly_board").then(function(d){if(current==="weekly")go("weekly",d);}).catch(function(e){showError(e,"home");});return;}
   if(screen==="board"){ go("board",null); api("board").then(function(d){ if(current==="board") go("board",d); }).catch(function(e){ showError(e,"board"); }); return; }
   if(screen==="plans"||screen==="confirm"){ loadPlans().then(function(){ go(screen); }).catch(function(e){ showError(e,"home"); }); return; }
   if(screen==="signup"||screen==="welcome"){ go(screen); return; }
@@ -516,7 +548,7 @@ function signIn(t){
   api("sign_in",{display_name:pendingName, phone:pendingPhone}).then(function(d){
     setToken(d.token); P=d.profile;
     try{ localStorage.setItem("uceni_name", pendingName.trim()); localStorage.removeItem("uceni_phone"); }catch(err){}
-    go("home"); refreshOnline(); })
+    go("home"); refreshOnline();if(invitedCode){var code=invitedCode;invitedCode=null;handleInvite(code);} })
     .catch(function(err){ busy(t,false); setErr(err.message); });
 }
 function setErr(m){ var e=document.getElementById("err"); if(e) e.textContent=m||""; }
@@ -524,6 +556,12 @@ function busy(btn,on){ if(btn){ btn.disabled=on; } }
 
 document.addEventListener("click",function(e){
   var t = e.target.closest("button"); if(!t) return;
+  if(t.dataset.theme){activeFriend=null;pendingSubject=t.dataset.theme;go("difficulty");return;}
+  if(t.dataset.avatar){api("settings",{avatar:t.dataset.avatar}).then(function(d){P=d.profile;go("account");}).catch(function(e){alert(e.message);});return;}
+  if(t.dataset.challenge){busy(t,true);api("challenge_create",{session_id:t.dataset.challenge}).then(function(d){var u=location.origin+"/?challenge="+encodeURIComponent(d.code);
+    if(navigator.share)return navigator.share({title:"Uceni Learning Challenge",text:"Can you beat my educational trivia score? No prizes or charges.",url:u}).catch(function(){});
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(u).then(function(){alert("Link copied! Share with a friend.");});
+    prompt("Copy your learning challenge link:",u);}).catch(function(e){alert(e.message);}).finally(function(){busy(t,false);});return;}
   if(t.dataset.go){ if(!C.billingLive && ["plans","confirm","subscribed"].includes(t.dataset.go)) { goTo("home"); return; } goTo(t.dataset.go); return; }
   if(t.dataset.start){ if(!hasAccess()){ goTo("plans"); return; } pendingSubject=t.dataset.start; go("difficulty"); return; }
   if(t.dataset.again){ startSession(t.dataset.again, t.dataset.lv); return; }
@@ -596,7 +634,7 @@ document.addEventListener("keydown",function(e){
 startOnline();
 // Restore only the same browser's valid guest session; entering a number never recovers another person's account.
 if(getToken()) {
-  api("me").then(function(d){ P=d.profile; go("home"); }).catch(function(){ setToken(null); P=null; go("welcome"); });
+  api("me").then(function(d){ P=d.profile; go("home"); if(invitedCode){var code=invitedCode;invitedCode=null;handleInvite(code);} }).catch(function(){ setToken(null); P=null; go("welcome"); });
 } else {
   go("welcome");
 }

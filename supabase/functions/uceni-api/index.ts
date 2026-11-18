@@ -88,6 +88,53 @@ function subView(s: any) {
   return { plan_id: s.plan_id, plan_name: s.plan_name, price: s.price, status: s.status, expires_at: s.expires_at };
 }
 
+
+// Learning achievements are derived from completed server-side sessions, not browser claims.
+// The first eight badges are subject explorers; the rest reward practice and mastery.
+const BADGE_SUBJECTS: Record<string,string> = {
+ maths:"Maths Explorer",english:"Word Wizard",science:"Science Explorer",history:"History Hero",
+ geography:"World Navigator",health:"Wellness Learner",tech:"Digital Discoverer",gk:"Knowledge Seeker"
+};
+const BADGE_MILESTONES = [
+ ["first_round","First Steps",1],["five_rounds","Committed Learner",5],["ten_rounds","Ten Round Scholar",10],
+ ["twenty_rounds","Learning Legend",20],["fifty_rounds","Curious Champion",50]
+] as const;
+async function learningGame(learnerId:string, streak:number) {
+  const sessions=await sql`select subject_id,level,correct,started_at,finished_at,points from uceni.sessions
+    where learner_id=${learnerId} and status='completed' order by finished_at desc limit 2000`;
+  const day=(d:any)=>new Date(d).toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"});
+  const weekStart=(()=>{ const today=new Date(); const local=new Date(today.toLocaleString("en-US",{timeZone:"Africa/Lagos"})); const diff=(local.getDay()+6)%7; local.setDate(local.getDate()-diff); return day(local); })();
+  const today=day(new Date());
+  const todayRounds=sessions.filter((x:any)=>day(x.finished_at)===today);
+  const todaySubjects=new Set(todayRounds.map((x:any)=>x.subject_id));
+  const badges:any[]=[];
+  const add=(id:string,name:string,unlocked:boolean)=>badges.push({id,name,unlocked});
+  for(const [subject,name] of Object.entries(BADGE_SUBJECTS))
+    add("explore_"+subject,name,sessions.some((x:any)=>x.subject_id===subject));
+  for(const [id,name,goal] of BADGE_MILESTONES)add(id,name,sessions.length>=goal);
+  add("perfect_ten","Perfect 10",sessions.some((x:any)=>x.correct===10));
+  add("strong_seven","Seven Correct",sessions.some((x:any)=>x.correct>=7));
+  add("three_day_streak","Three-Day Flame",streak>=3);
+  add("seven_day_streak","Seven-Day Scholar",streak>=7);
+  add("subject_sampler","Subject Sampler",new Set(sessions.map((x:any)=>x.subject_id)).size>=4);
+  add("all_rounder","All-Round Explorer",new Set(sessions.map((x:any)=>x.subject_id)).size>=8);
+  add("advanced","Advanced Thinker",sessions.some((x:any)=>x.level==="advanced"));
+  const best:any={};for(const x of sessions)best[x.subject_id]=Math.max(best[x.subject_id]||0,x.correct);
+  const weekly=sessions.filter((x:any)=>day(x.finished_at)>=weekStart);
+  const daily=[
+    {id:"first",title:"Daily Brain Quest",description:"Finish one learning round",progress:Math.min(1,todayRounds.length),goal:1},
+    {id:"accurate",title:"Sharp Thinker",description:"Score at least 7 out of 10 today",progress:todayRounds.some((x:any)=>x.correct>=7)?1:0,goal:1},
+    {id:"variety",title:"Curious Explorer",description:"Study two different subjects today",progress:Math.min(2,todaySubjects.size),goal:2}
+  ];
+  const weakest=Object.entries(BADGE_SUBJECTS).map(([id,name])=>{
+    const rounds=sessions.filter((x:any)=>x.subject_id===id);
+    const accuracy=rounds.length?Math.round(rounds.reduce((a:number,x:any)=>a+x.correct,0)/(rounds.length*10)*100):null;
+    return {id,name,accuracy,rounds:rounds.length};
+  }).filter(x=>x.rounds>0).sort((a,b)=>(a.accuracy??100)-(b.accuracy??100))[0]||null;
+  return {badges,daily,best,weekly_points:weekly.reduce((n:number,x:any)=>n+x.points,0),
+    weekly_rounds:weekly.length,recommendation:weakest,week_start:weekStart};
+}
+
 async function profile(l: any) {
   // A free-preview session must never trigger mock renewals or claim paid entitlement.
   const sub = BILLING_LIVE ? await access(l.id) : null;
@@ -100,11 +147,12 @@ async function profile(l: any) {
   const last = l.streak_last ? new Date(l.streak_last) : null;
   const streakLive = last && (last.getTime() === new Date(today).getTime() || last.getTime() === yest.getTime());
   return {
-    phone: l.phone.startsWith('guest_') ? 'Unverified free-play session' : l.phone, display_name: l.display_name, hide_board: l.hide_board,
+    phone: l.phone.startsWith('guest_') ? 'Unverified free-play session' : l.phone, display_name: l.display_name, hide_board: l.hide_board, avatar:l.avatar,
     total_points: l.total_points, streak: streakLive ? l.streak_count : 0, sessions: l.sessions_completed,
     subscription: subView(sub),
     subjects: subjects.map((s: any) => ({ ...s, level: levelOf(s.points) })),
     difficulty: await difficulty(),
+    game: await learningGame(l.id, streakLive ? l.streak_count : 0),
     billing_live: BILLING_LIVE,
   };
 }
@@ -176,15 +224,28 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     if (!subject) fail(400, "Unknown subject.");
     const level = (await sql`select * from uceni.levels where id = ${String(body.level ?? "beginner")}`)[0];
     if (!level) fail(400, "Choose a difficulty level.");
-    const qs = await sql`select id from uceni.questions where subject_id = ${subject.id} and level = ${level.id} and status = 'approved'
+    const challengeCode = String(body.challenge_code ?? "").trim().toLowerCase();
+    let challenge:any=null;
+    if(challengeCode) {
+      if(!/^[a-f0-9]{24}$/.test(challengeCode)) fail(400,"Invalid challenge link.");
+      challenge=(await sql`select c.id,c.creator_id, src.subject_id,src.level,src.question_ids,src.correct,
+            l.display_name as creator_name from uceni.friend_challenges c
+            join uceni.sessions src on src.id=c.session_id join uceni.learners l on l.id=c.creator_id
+            where c.code=${challengeCode} and c.expires_at > now() and src.status='completed'`)[0];
+      if(!challenge) fail(404,"This challenge has expired or is unavailable.");
+      if(challenge.subject_id!==subject.id || challenge.level!==level.id) fail(400,"Challenge subject or level mismatch.");
+    }
+    const qs = challenge ? challenge.question_ids.map((id:string)=>({id})) :
+      await sql`select id from uceni.questions where subject_id = ${subject.id} and level = ${level.id} and status = 'approved'
                          order by random() limit ${SESSION_SIZE}`;
-    if (qs.length < 5) fail(409, "Questions at this level are being prepared. Try another level.");
+    if (qs.length < SESSION_SIZE) fail(409, "Questions at this level are being prepared. Try another level.");
     await sql`update uceni.sessions set status = 'abandoned' where learner_id = ${l.id} and status = 'active'`;
     const ids = qs.map((q: any) => q.id);
     const s = (await sql`insert into uceni.sessions (learner_id, subject_id, question_ids, level, question_seconds)
                          values (${l.id}, ${subject.id}, ${sql.array(ids)}::uuid[], ${level.id}, ${level.seconds}) returning id`)[0];
     return { session_id: s.id, subject: subject.name, level: level.name, total: ids.length,
-             question_seconds: level.seconds, points_per_correct: level.points_per_correct };
+             question_seconds: level.seconds, points_per_correct: level.points_per_correct,
+      friend: challenge ? {name:challenge.creator_name,score:challenge.correct} : null };
   },
 
   // Serves the current question and starts its clock. Asking again does not reset the clock.
@@ -277,10 +338,52 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     };
   },
 
+  async challenge_create(req, body) {
+    const l=await learnerFrom(req);
+    const sessionId=String(body.session_id??"");
+    const round=(await sql`select id,subject_id,level,correct from uceni.sessions
+      where id=${sessionId} and learner_id=${l.id} and status='completed'`)[0];
+    if(!round) fail(404,"Finish a round before inviting a friend.");
+    const code=randomHex(12);
+    const rows=await sql`insert into uceni.friend_challenges (creator_id,session_id,code)
+       values (${l.id},${round.id},${code})
+       on conflict (session_id) do update set expires_at=now()+interval '7 days'
+       returning code,expires_at`;
+    return { code:rows[0].code,expires_at:rows[0].expires_at,subject_id:round.subject_id,level:round.level };
+  },
+
+  async challenge_lookup(req,body) {
+    await learnerFrom(req);
+    const code=String(body.code??"").toLowerCase();
+    if(!/^[a-f0-9]{24}$/.test(code)) fail(400,"Invalid challenge link.");
+    const rows=await sql`select src.subject_id,src.level,src.correct,l.display_name
+       from uceni.friend_challenges c join uceni.sessions src on src.id=c.session_id
+       join uceni.learners l on l.id=c.creator_id
+       where c.code=${code} and c.expires_at>now() and src.status='completed'`;
+    if(!rows.length) fail(404,"Challenge not found or expired.");
+    return {challenge:rows[0]};
+  },
+
+  async weekly_board(req) {
+    const me=await learnerFrom(req);
+    // Rankings contain only users who explicitly opted into the learning board.
+    const rows=await sql`select l.id,l.display_name,
+      sum(s.points)::int as points,count(s.id)::int as rounds
+      from uceni.sessions s join uceni.learners l on l.id=s.learner_id
+      where s.status='completed' and s.finished_at >= date_trunc('week',now() at time zone 'Africa/Lagos') at time zone 'Africa/Lagos'
+        and not l.hide_board group by l.id,l.display_name order by points desc limit 20`;
+    return {top:rows.map((r:any,i:number)=>({rank:i+1,name:r.display_name,points:r.points,rounds:r.rounds,me:r.id===me.id}))};
+  },
+
   async settings(req, body) {
     const l = await learnerFrom(req);
     if (typeof body.hide_board === "boolean") await sql`update uceni.learners set hide_board = ${body.hide_board} where id = ${l.id}`;
     if (typeof body.display_name === "string") await sql`update uceni.learners set display_name = ${body.display_name.trim().slice(0, 24)} where id = ${l.id}`;
+    if (typeof body.avatar === "string") {
+      const avatars=["brain","star","rocket","owl","lion","book","globe","lightning"];
+      if(!avatars.includes(body.avatar)) fail(400,"Choose an available avatar.");
+      await sql`update uceni.learners set avatar=${body.avatar} where id=${l.id}`;
+    }
     return { profile: await profile((await sql`select * from uceni.learners where id = ${l.id}`)[0]) };
   },
 
