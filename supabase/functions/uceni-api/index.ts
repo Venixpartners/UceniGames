@@ -60,6 +60,7 @@ async function learnerFrom(req: Request) {
     select l.* from uceni.learner_tokens t join uceni.learners l on l.id = t.learner_id
     where t.token_hash = ${await sha256(token!)} and t.expires_at > now()`;
   if (!rows.length) fail(401, "Your sign in has expired. Please sign in again.");
+  if (!BILLING_LIVE && !String(rows[0].phone).startsWith("guest_")) fail(401, "Please start a new free-preview session.");
   await sql`update uceni.learners set last_seen_at = now() where id = ${rows[0].id}`;
   return rows[0];
 }
