@@ -309,3 +309,8 @@ nav.tabs button[aria-current="page"]{font-weight:700;border-top-color:var(--ink)
 .board li .small{display:block}
 @media(min-width:560px){.badge-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.game-hero,.badge-tile,.quest-row{animation:none!important;transition:none!important}}
+
+/* Visible four-stage subject progression path */
+.mastery-path{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.25rem;margin:.65rem 0}
+.mastery-path span{font-size:.65rem;line-height:1.35;text-align:center;padding:.45rem .1rem;border-radius:7px;background:var(--soft);border:1px solid var(--line)}
+.mastery-path span.earned{background:rgba(29,165,104,.12);border-color:var(--good);font-weight:700}
