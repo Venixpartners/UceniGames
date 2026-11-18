@@ -102,7 +102,7 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       coalesce(sum(c.amount) filter (where c.charged_at > now() - interval '30 days'),0)::int as d30,
       coalesce(sum(c.amount),0)::int as all_time,
       count(c.*)::int as charges
-      from uceni.plans p left join uceni.charges c on c.plan_id = p.id and c.status = 'success' group by p.id order by p.sort`;
+      from uceni.plans p left join uceni.charges c on c.plan_id = p.id and c.status = 'success' and c.provider <> 'mock' group by p.id order by p.sort`;
     const [sessions] = await sql`select count(*) filter (where status = 'completed')::int as completed,
       count(*) filter (where status = 'completed' and finished_at > now() - interval '7 days')::int as completed_7d,
       coalesce(round(avg(correct) filter (where status = 'completed'), 1), 0)::float as avg_correct from uceni.sessions`;

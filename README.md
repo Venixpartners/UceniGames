@@ -41,7 +41,17 @@ Points per subject move a learner through the ranks Starter, Achiever, Expert an
 The live bank of 800 approved questions (100 per subject: 40 Beginner, 35 Intermediate, 25 Advanced) is held in the database.
 Questions are added, edited, retired and approved in the admin portal at `/admin/`, not in this repository.
 
-## Test mode
+## Public free-preview mode
+
+Public visitors may enter a Nigerian mobile number and play without SMS OTP or charging. Because the number is **not verified**, the backend creates a unique guest learner instead of looking up any existing phone-number account. The entered number is not persisted on the server. A guest token is saved in that browser for up to 14 days; progress cannot yet be recovered by MSISDN.
+
+- All game sessions, Knowledge Points and question reviews remain server-side.
+- Paid subscribe returns 503; opening the site cannot generate mock renewal transactions.
+- Admin revenue excludes `mock` provider entries.
+- The visible banner explicitly explains free access and the absence of phone verification.
+- Re-enable paid subscriptions only after NCC-compliant operator consent and verified MSISDN linking.
+
+## Legacy test-mode reference
 
 Two things are simulated until the aggregator is connected:
 

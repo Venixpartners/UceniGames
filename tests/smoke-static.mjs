@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+
+const read = file => readFileSync(new URL('../'+file, import.meta.url), 'utf8');
+const app = read('js/app.js');
+const cfg = read('js/config.js');
+const api = read('supabase/functions/uceni-api/index.ts');
+const admin = read('supabase/functions/uceni-admin/index.ts');
+const html = read('index.html');
+
+execFileSync(process.execPath, ['--check', new URL('../js/app.js', import.meta.url).pathname]);
+execFileSync(process.execPath, ['--check', new URL('../js/config.js', import.meta.url).pathname]);
+execFileSync(process.execPath, ['--check', new URL('../admin/admin.js', import.meta.url).pathname]);
+assert.match(cfg, /billingLive:\s*false/, 'Client must advertise no paid billing');
+assert.match(html, /Free preview: play without airtime charges/, 'Public banner must state free access');
+assert.match(app, /Your number is not verified/, 'Users must be informed about unverified numbers');
+assert.match(app, /if\(getToken\(\)\)/, 'Returning browser guest should restore session');
+assert.match(api, /const BILLING_LIVE = false/, 'Server-side billing must be hard-disabled');
+assert.match(api, /const OTP_LIVE = false/, 'SMS verification must not be advertised without provider');
+assert.match(api, /const guestPhone = "guest_" \+ randomHex\(16\)/, 'Phone input must never select existing identity');
+assert.match(api, /normalisePhone\(body.phone\); \/\/ format check only/, 'Validate, but do not store unverified numbers');
+assert.match(api, /startsWith\("guest_"\)/, 'Old unverified accounts must not remain accessible');
+assert.match(api, /async subscribe\(_req, _body\) \{[\s\S]*?fail\(503/, 'No mock payments or subscriptions');
+assert.match(api, /async request_otp\(_req, _body\) \{[\s\S]*?fail\(503/, 'Do not return OTPs without SMS');
+assert.doesNotMatch(api, /Mock automatic renewal: one charge per elapsed period/, 'Reading profile must not create renewals');
+assert.match(admin, /c\.provider <> 'mock'/, 'Mock charges must not be counted as revenue');
+console.log('PASS: free-preview, static JS syntax and no-mock-billing guards');
