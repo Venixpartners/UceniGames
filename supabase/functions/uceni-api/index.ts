@@ -15,9 +15,9 @@ const GRACE_MS = 4000;            // allowance for slow networks
 const SESSION_SIZE = 10;
 const TOKEN_DAYS = 14; // Free-preview session; not a verified telephone identity.
 // Until the aggregator or an SMS provider sends codes, OTP runs in test mode and the code is returned to the app.
-const OTP_LIVE = Deno.env.get("UCENI_OTP_MODE") === "live";
+const OTP_LIVE = false; // Free preview only: cannot be enabled by an environment toggle.
 // While billing is simulated, signing in gives full access. Set UCENI_BILLING_MODE=live to require a plan again.
-const BILLING_LIVE = Deno.env.get("UCENI_BILLING_MODE") === "live";
+const BILLING_LIVE = false; // Free preview only: billing requires a separate reviewed integration.
 // Progress ranks earned per subject. Difficulty levels (time and points per question) live in uceni.levels.
 const RANKS: [string, number][] = [["Starter", 0], ["Achiever", 300], ["Expert", 800], ["Scholar", 1600]];
 async function difficulty() {
