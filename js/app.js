@@ -548,7 +548,7 @@ function signIn(t){
   api("sign_in",{display_name:pendingName, phone:pendingPhone}).then(function(d){
     setToken(d.token); P=d.profile;
     try{ localStorage.setItem("uceni_name", pendingName.trim()); localStorage.removeItem("uceni_phone"); }catch(err){}
-    go("home"); refreshOnline(); })
+    go("home"); refreshOnline();if(invitedCode){var code=invitedCode;invitedCode=null;handleInvite(code);} })
     .catch(function(err){ busy(t,false); setErr(err.message); });
 }
 function setErr(m){ var e=document.getElementById("err"); if(e) e.textContent=m||""; }
@@ -556,6 +556,12 @@ function busy(btn,on){ if(btn){ btn.disabled=on; } }
 
 document.addEventListener("click",function(e){
   var t = e.target.closest("button"); if(!t) return;
+  if(t.dataset.theme){activeFriend=null;pendingSubject=t.dataset.theme;go("difficulty");return;}
+  if(t.dataset.avatar){api("settings",{avatar:t.dataset.avatar}).then(function(d){P=d.profile;go("account");}).catch(function(e){alert(e.message);});return;}
+  if(t.dataset.challenge){busy(t,true);api("challenge_create",{session_id:t.dataset.challenge}).then(function(d){var u=location.origin+"/?challenge="+encodeURIComponent(d.code);
+    if(navigator.share)return navigator.share({title:"Uceni Learning Challenge",text:"Can you beat my educational trivia score? No prizes or charges.",url:u}).catch(function(){});
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(u).then(function(){alert("Link copied! Share with a friend.");});
+    prompt("Copy your learning challenge link:",u);}).catch(function(e){alert(e.message);}).finally(function(){busy(t,false);});return;}
   if(t.dataset.go){ if(!C.billingLive && ["plans","confirm","subscribed"].includes(t.dataset.go)) { goTo("home"); return; } goTo(t.dataset.go); return; }
   if(t.dataset.start){ if(!hasAccess()){ goTo("plans"); return; } pendingSubject=t.dataset.start; go("difficulty"); return; }
   if(t.dataset.again){ startSession(t.dataset.again, t.dataset.lv); return; }
@@ -628,7 +634,7 @@ document.addEventListener("keydown",function(e){
 startOnline();
 // Restore only the same browser's valid guest session; entering a number never recovers another person's account.
 if(getToken()) {
-  api("me").then(function(d){ P=d.profile; go("home"); }).catch(function(){ setToken(null); P=null; go("welcome"); });
+  api("me").then(function(d){ P=d.profile; go("home"); if(invitedCode){var code=invitedCode;invitedCode=null;handleInvite(code);} }).catch(function(){ setToken(null); P=null; go("welcome"); });
 } else {
   go("welcome");
 }
