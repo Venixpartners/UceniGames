@@ -16,3 +16,4 @@ jobs:
         with:
           node-version: '22'
       - run: node tests/smoke-static.mjs
+      - run: node tests/gamification-static.mjs
