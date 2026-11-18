@@ -515,7 +515,7 @@ function signIn(t){
   busy(t,true); setErr("");
   api("sign_in",{display_name:pendingName, phone:pendingPhone}).then(function(d){
     setToken(d.token); P=d.profile;
-    try{ localStorage.setItem("uceni_name", pendingName.trim()); localStorage.setItem("uceni_phone", pendingPhone.trim()); }catch(err){}
+    try{ localStorage.setItem("uceni_name", pendingName.trim()); localStorage.removeItem("uceni_phone"); }catch(err){}
     go("home"); refreshOnline(); })
     .catch(function(err){ busy(t,false); setErr(err.message); });
 }
