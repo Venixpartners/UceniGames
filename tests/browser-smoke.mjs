@@ -40,6 +40,7 @@ try{
   await page.getByText('Your progress').waitFor({timeout:15000});
   await page.getByText('Your Learning Adventure').waitFor({timeout:10000});
   await page.getByText('Personal best',{exact:false}).waitFor({timeout:10000});
+  await page.locator('button[data-practice]').waitFor({timeout:10000});
   await page.locator('button[data-go="account"]').click();
   await page.getByText('Free preview: no subscription').waitFor({timeout:15000});
   await page.locator('button[data-act="sign_out"]').click();
