@@ -151,7 +151,8 @@ SCREENS.welcome = function(){
     '</div>'+
     '<div class="stack">'+
     '<div class="online-row">'+onlineHtml()+'</div>'+
-    '<p>Enter your name and phone number to play.</p>'+
+    '<p>Enter your name and a Nigerian mobile number to play for free.</p>'+
+    '<p class="note">Free preview: there are no airtime charges. Your number is not verified or used to access an existing account. Progress stays linked to this browser session and cannot yet be recovered by phone number.</p>'+
     '<label class="field"><span>Your name</span><input id="dname" type="text" maxlength="24" autocomplete="given-name" value="'+esc(pendingName)+'" data-autofocus></label>'+
     '<label class="field"><span>Phone number</span><input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0803 123 4567" value="'+esc(pendingPhone)+'"></label>'+
     '<p class="err" id="err" aria-live="polite"></p>'+
@@ -473,7 +474,7 @@ SCREENS.account = function(){
   var status = !s ? "No active plan" : s.status==="cancelled" ? "Cancelled, access until "+fmtDate(s.expires_at) : "Active, renews "+fmtDate(s.expires_at);
   return '<h1>Account</h1>'+
     '<dl class="kv">'+
-      '<div><dt>Phone</dt><dd>'+esc(P.phone)+'</dd></div>'+
+      '<div><dt>Access</dt><dd>'+esc(P.phone)+'</dd></div>'+
       '<div><dt>Plan</dt><dd>'+(s?esc(s.plan_name)+", "+naira(s.price)+" "+PER[s.plan_id]:"None")+'</dd></div>'+
       '<div><dt>Status</dt><dd>'+status+'</dd></div>'+
     '</dl>'+
@@ -482,8 +483,8 @@ SCREENS.account = function(){
     '<div class="toggle" style="margin-top:.75rem"><span>Sound effects</span><button class="sw" role="switch" aria-checked="'+soundOn+'" aria-label="Sound effects" data-act="sound"></button></div>'+
     '<div class="toggle" style="margin-top:.75rem"><span>Hide me from the learning board</span><button class="sw" role="switch" aria-checked="'+P.hide_board+'" aria-label="Hide me from the learning board" data-act="hide"></button></div>'+
     '<div class="stack" style="margin-top:1.5rem">'+
-      '<button class="btn alt" data-go="plans">'+(s?"Change plan":"Choose a plan")+'</button>'+
-      (s&&s.status==="active"?'<button class="btn alt" data-act="cancel">Unsubscribe</button>':'')+
+      (P.billing_live?'<button class="btn alt" data-go="plans">'+(s?"Change plan":"Choose a plan")+'</button>':'<p class="notice">Free preview: no subscription or airtime payment is required.</p>')+
+      (P.billing_live&&s&&s.status==="active"?'<button class="btn alt" data-act="cancel">Unsubscribe</button>':'')+
     '</div>'+
     '<p class="note">Knowledge Points measure learning progress only. They have no monetary value and cannot be redeemed, exchanged or transferred for cash, airtime, data, goods or any other reward. Uceni Games offers no prizes or rewards of any kind.</p>'+
     legalLinks()+
@@ -523,7 +524,7 @@ function busy(btn,on){ if(btn){ btn.disabled=on; } }
 
 document.addEventListener("click",function(e){
   var t = e.target.closest("button"); if(!t) return;
-  if(t.dataset.go){ goTo(t.dataset.go); return; }
+  if(t.dataset.go){ if(!C.billingLive && ["plans","confirm","subscribed"].includes(t.dataset.go)) { goTo("home"); return; } goTo(t.dataset.go); return; }
   if(t.dataset.start){ if(!hasAccess()){ goTo("plans"); return; } pendingSubject=t.dataset.start; go("difficulty"); return; }
   if(t.dataset.again){ startSession(t.dataset.again, t.dataset.lv); return; }
   if(t.dataset.level){ chosenLevel=t.dataset.level; try{ localStorage.setItem("uceni_level",chosenLevel); }catch(err){} Array.prototype.forEach.call(app.querySelectorAll("[data-level]"),function(b){b.setAttribute("aria-checked",b.dataset.level===chosenLevel);}); return; }
@@ -593,5 +594,10 @@ document.addEventListener("keydown",function(e){
 
 /* ---------- Start ---------- */
 startOnline();
-go("welcome");
+// Restore only the same browser's valid guest session; entering a number never recovers another person's account.
+if(getToken()) {
+  api("me").then(function(d){ P=d.profile; go("home"); }).catch(function(){ setToken(null); P=null; go("welcome"); });
+} else {
+  go("welcome");
+}
 })();
