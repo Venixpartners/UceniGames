@@ -521,7 +521,7 @@ SCREENS.account = function(){
       (P.billing_live?'<button class="btn alt" data-go="plans">'+(s?"Change plan":"Choose a plan")+'</button>':'<p class="notice">Free preview: no subscription or airtime payment is required.</p>')+
       (P.billing_live&&s&&s.status==="active"?'<button class="btn alt" data-act="cancel">Unsubscribe</button>':'')+
     '</div>'+
-    '<p class="note">Knowledge Points measure learning progress only. They have no monetary value and cannot be redeemed, exchanged or transferred for cash, airtime, data, goods or any other reward. Uceni Games offers no prizes or rewards of any kind.</p>'+
+    '<p class="note">Knowledge Points and virtual badges reflect educational achievements only. They cannot be exchanged for cash, airtime, data or material prizes; Uceni offers no monetary or material rewards.</p>'+
     legalLinks()+
     '<button class="btn quiet" style="margin-top:1rem" data-act="sign_out">Sign out</button>';
 };
