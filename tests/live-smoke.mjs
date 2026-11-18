@@ -82,6 +82,12 @@ const originalReview=success(await request('review',a.token,{session_id:s.sessio
 assert.equal(opponentQuestion.question_id,originalReview.answers[0].question_id,'same first question for both players');
 assert.equal((await request('challenge_lookup',b.token,{code:'invalid'})).status,400,'reject invalid challenge');
 
+// Personalised revision must prioritise approved questions missed in the prior completed round.
+const missedIds=new Set(originalReview.answers.filter(x=>!x.is_correct).map(x=>x.question_id));
+const practice=success(await request('start',a.token,{subject_id:'maths',level:'beginner',practice_mode:true}),'start adaptive practice');
+assert.equal(practice.total,10,'Adaptive practice preserves exactly ten questions');
+const revisited=success(await request('question',a.token,{session_id:practice.session_id}),'adaptive first question');
+if(missedIds.size>0)assert.ok(missedIds.has(revisited.question_id),'Previously missed questions should be prioritised');
 const afterA=success(await request('me',a.token),'A profile').profile;
 const afterB=success(await request('me',b.token),'B profile').profile;
 assert.equal(afterA.sessions,1);
