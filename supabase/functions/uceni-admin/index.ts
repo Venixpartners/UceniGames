@@ -59,14 +59,37 @@ function cleanQuestion(b: any) {
 
 const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async login(_req, body) {
-    const email = String(body.email ?? "").trim().toLowerCase();
-    const rows = await sql`select id, name, email from uceni.admins
-                           where email = ${email} and password_hash = extensions.crypt(${String(body.password ?? "")}, password_hash)`;
-    if (!rows.length) { await new Promise((r) => setTimeout(r, 800)); fail(401, "Email or password is not correct."); }
+    const email = String(body.email ?? "").trim().toLowerCase().slice(0, 254);
+    const password = String(body.password ?? "");
+    if (!email || !email.includes("@") || password.length > 1024) fail(401, "Email or password is not correct.");
+    // Database-backed failure counts persist across function instances. Account rows
+    // are locked while checking the hash to prevent parallel guesses bypassing limits.
+    const outcome = await sql.begin(async (tx) => {
+      const rows = await tx`select id, name, email, password_hash, failed_login_attempts, locked_until
+                            from uceni.admins where email = ${email} for update`;
+      if (!rows.length) return { state: "invalid" };
+      const a = rows[0];
+      if (a.locked_until && new Date(a.locked_until).getTime() > Date.now()) return { state: "locked" };
+      const [check] = await tx`select extensions.crypt(${password}, ${a.password_hash}) = ${a.password_hash} as valid`;
+      if (!check.valid) {
+        const attempts = (a.locked_until ? 0 : a.failed_login_attempts) + 1;
+        await tx`update uceni.admins set failed_login_attempts = ${attempts},
+                 locked_until = case when ${attempts} >= 5 then now() + interval '15 minutes' else null end
+                 where id = ${a.id}`;
+        return { state: attempts >= 5 ? "locked" : "invalid" };
+      }
+      await tx`update uceni.admins set failed_login_attempts = 0, locked_until = null where id = ${a.id}`;
+      return { state: "success", admin: { id: a.id, name: a.name, email: a.email } };
+    });
+    if (outcome.state !== "success") {
+      await new Promise((r) => setTimeout(r, 600));
+      fail(outcome.state === "locked" ? 429 : 401,
+           outcome.state === "locked" ? "Too many attempts. Try again after 15 minutes." : "Email or password is not correct.");
+    }
     const token = randomHex();
     await sql`insert into uceni.admin_tokens (token_hash, admin_id, expires_at)
-              values (${await sha256(token)}, ${rows[0].id}, now() + ${TOKEN_HOURS + " hours"}::interval)`;
-    return { token, admin: rows[0] };
+              values (${await sha256(token)}, ${outcome.admin.id}, now() + ${TOKEN_HOURS + " hours"}::interval)`;
+    return { token, admin: outcome.admin };
   },
 
   async me(req) { return { admin: await adminFrom(req) }; },
@@ -80,11 +103,15 @@ const actions: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async change_password(req, body) {
     const a = await adminFrom(req);
     const next = String(body.new_password ?? "");
-    if (next.length < 10) fail(400, "Use at least 10 characters.");
+    if (next.length < 12) fail(400, "Use at least 12 characters.");
     const ok = await sql`select 1 from uceni.admins where id = ${a.id} and password_hash = extensions.crypt(${String(body.current_password ?? "")}, password_hash)`;
     if (!ok.length) fail(400, "Your current password is not correct.");
-    await sql`update uceni.admins set password_hash = extensions.crypt(${next}, extensions.gen_salt('bf')) where id = ${a.id}`;
-    return { ok: true };
+    await sql.begin(async (tx) => {
+      await tx`update uceni.admins set password_hash = extensions.crypt(${next}, extensions.gen_salt('bf')),
+        failed_login_attempts = 0, locked_until = null where id = ${a.id}`;
+      await tx`delete from uceni.admin_tokens where admin_id = ${a.id}`;
+    });
+    return { ok: true, signed_out: true };
   },
 
   async stats(req) {
