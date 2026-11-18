@@ -25,7 +25,8 @@ function api(action, body){
 function login(msg){
   app.innerHTML = '<div class="stack" style="max-width:26rem;margin-top:2rem"><h1>Sign in</h1>'+
     '<label class="field"><span>Email</span><input id="em" type="email" autocomplete="username"></label>'+
-    '<label class="field"><span>Password</span><input id="pw" type="password" autocomplete="current-password"></label>'+
+    '<label class="field"><span>Password</span><input id="pw" type="password" autocomplete="current-password"></label>'+ 
+    '<label><input type="checkbox" data-show-password="pw"> Show password</label>'+
     '<p class="err" id="err">'+esc(msg||"")+'</p><button class="btn" data-act="login">Sign in</button></div>';
   document.getElementById("em").focus();
 }
@@ -45,7 +46,7 @@ function overview(){
     var rev30 = s.revenue.reduce(function(a,x){return a+x.d30;},0);
     body(
       '<h1>Overview</h1>'+
-      (!C.billingLive?'<p class="notice" style="margin-top:1rem">Billing is in test mode. Revenue below comes from test subscriptions, not real charges.</p>':'')+
+      (!C.billingLive?'<p class="notice" style="margin-top:1rem">Free preview: no telco billing is active. Historical mock transactions are excluded from revenue.</p>':'')+
       '<div class="cards">'+
         '<div class="card"><b>'+s.learners.total+'</b>Learners</div>'+
         '<div class="card"><b>'+s.learners.new_7d+'</b>New in 7 days</div>'+
@@ -169,7 +170,8 @@ function learners(search){
 function settings(){
   shell('<h1>Settings</h1><p>Signed in as '+esc(admin.email)+'.</p><div class="stack" style="max-width:26rem;margin-top:1rem"><h2>Change password</h2>'+
     '<label class="field"><span>Current password</span><input id="cp" type="password" autocomplete="current-password"></label>'+
-    '<label class="field"><span>New password (at least 10 characters)</span><input id="np" type="password" autocomplete="new-password"></label>'+
+    '<label class="field"><span>New password (at least 12 characters)</span><input id="np" type="password" minlength="12" autocomplete="new-password"></label>'+ 
+    '<label><input type="checkbox" data-show-password="cp,np"> Show passwords</label>'+
     '<p class="err" id="err"></p><button class="btn" data-act="pw">Update password</button>'+
     '<button class="btn alt" data-act="signout">Sign out</button></div>');
 }
@@ -184,6 +186,12 @@ function show(t, arg){
   else if(t==="learners") learners(arg);
   else if(t==="settings") settings();
 }
+
+document.addEventListener("change",function(e){
+  var v = e.target.getAttribute("data-show-password");
+  if(!v) return;
+  v.split(",").forEach(function(id){var el=document.getElementById(id);if(el)el.type=e.target.checked?"text":"password";});
+});
 
 document.addEventListener("click",function(e){
   var b = e.target.closest("button"); if(!b) return;
@@ -230,7 +238,7 @@ document.addEventListener("click",function(e){
   if(d.act==="pw"){
     b.disabled=true;
     api("change_password",{current_password:document.getElementById("cp").value,new_password:document.getElementById("np").value})
-      .then(function(){ err.style.color="var(--good)"; err.textContent="Password updated."; b.disabled=false; })
+      .then(function(){ setTok(null); admin=null; login("Password changed. Please sign in again."); })
       .catch(function(x){ b.disabled=false; err.textContent=x.message; });
     return;
   }
