@@ -13,6 +13,9 @@ try{
   await page.locator('#phone').fill('08000000000');
   await page.locator('button[data-act="sign_in"]').click();
   await page.getByText('Pick a subject').waitFor({timeout:30000});
+  await page.locator('button[data-go="account"]').click();
+  await page.locator('button[data-act="hide"]').click();
+  await page.locator('button[data-go="home"]').click();
   await page.locator('button[data-start="maths"]').click();
   await page.locator('button[data-act="begin"]').click();
   for(let i=0;i<10;i++){
