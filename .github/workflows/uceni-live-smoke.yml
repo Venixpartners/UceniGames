@@ -1,6 +1,8 @@
 name: Uceni manual production E2E smoke
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -16,6 +18,7 @@ jobs:
       - run: node tests/live-smoke.mjs
 
   browser:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
