@@ -66,6 +66,26 @@ function star(on){ return '<svg class="st'+(on?' on':'')+'" viewBox="0 0 24 24" 
 var BOLT = '<svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><polygon fill="currentColor" points="13 2 4 14 11 14 10 22 20 9 13 9"/></svg>';
 var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* App-like mobile behaviour. Network is always required for sign-in, gameplay and scoring. */
+var installEvent=null;
+var connectionNotice=document.getElementById("connection-notice");
+function updateConnection(){if(connectionNotice)connectionNotice.hidden=navigator.onLine!==false;}
+window.addEventListener("online",updateConnection);
+window.addEventListener("offline",updateConnection);
+updateConnection();
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();installEvent=e; if(P&&current==="home")go("home");});
+window.addEventListener("appinstalled",function(){installEvent=null;});
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js",{scope:"/"}).catch(function(){});});
+}
+function installTip(){
+ if(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)return "";
+ if(installEvent)return '<div class="install-tip"><strong>📱 Add Uceni to your device</strong><p>Open the game like an app from your home screen. Internet is still required to play.</p><button class="btn alt" data-act="install_app">Install Uceni</button></div>';
+ var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent||"");
+ if(ios)return '<div class="install-tip"><strong>📱 Add Uceni to your iPhone</strong><p>In Safari, tap Share, then Add to Home Screen. Keep connected to play.</p></div>';
+ return "";
+}
+
 /* ---------- Learners online ---------- */
 var onlineN = 0, onlineTimer = null;
 function onlineHtml(){ return '<span class="online" aria-live="polite"'+(onlineN>0?'':' hidden')+'><i></i><b class="online-n">'+onlineN.toLocaleString()+'</b> learner'+(onlineN===1?'':'s')+' online now</span>'; }
@@ -267,6 +287,7 @@ SCREENS.home = function(){
       '<p class="goal">'+(P.streak?'Play a round today to keep your streak alive.':'Play a round today to light your streak.')+'</p>'+
     '</div>'+
     (!hasAccess()?'<div class="notice" style="margin-top:1.25rem">Your plan has ended. <button class="btn quiet" data-go="plans">Choose a plan</button> to keep learning.</div>':'')+
+    installTip()+
     gameHub()+
     '<h2 style="margin-top:1.75rem">Pick a subject</h2>'+
     '<ul class="tiles">'+P.subjects.map(function(s){
@@ -574,6 +595,10 @@ document.addEventListener("click",function(e){
   if(t.dataset.ans!==undefined){ answer(+t.dataset.ans); return; }
   if(t.dataset.plan){ chosenPlan=t.dataset.plan; Array.prototype.forEach.call(app.querySelectorAll("[data-plan]"),function(b){b.setAttribute("aria-checked",b.dataset.plan===chosenPlan);}); return; }
   var a = t.dataset.act;
+  if(a==="install_app" && installEvent){
+    var ev=installEvent; installEvent=null;
+    ev.prompt();Promise.resolve(ev.userChoice).finally(function(){if(P&&current==="home")go("home");});return;
+  }
   if(a==="sign_in"){ signIn(t); return; }
   if(a==="request_otp"||a==="request_otp_again"){
     if(a==="request_otp"){ pendingPhone=document.getElementById("phone").value; pendingName=document.getElementById("dname").value; }
