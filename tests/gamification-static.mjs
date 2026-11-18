@@ -27,4 +27,6 @@ assert.match(api, /body.practice_mode===true/, 'Adaptive practice must be explic
 assert.match(api, /a.is_correct=false and q.status='approved'/, 'Revision must use reviewed, approved missed questions');
 assert.match(app, /data-practice/, 'The personalised practice button must be connected');
 assert.match(app, /mastery-path/, 'Four-stage subject mastery path required');
+const progressSource=app.slice(app.indexOf('SCREENS.progress = function()'),app.indexOf('function podium'));
+assert.ok(progressSource.indexOf('g=P.game||{}') < progressSource.indexOf('P.subjects.map'), 'Personal-best data must be initialized before subject mapping');
 console.log('PASS: gamified JS syntax, 20-badge engine, server-derived quests, private friend challenge and blocked billing');
