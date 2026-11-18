@@ -25,4 +25,15 @@ assert.match(api, /async subscribe\(_req, _body\) \{[\s\S]*?fail\(503/, 'No mock
 assert.match(api, /async request_otp\(_req, _body\) \{[\s\S]*?fail\(503/, 'Do not return OTPs without SMS');
 assert.doesNotMatch(api, /Mock automatic renewal: one charge per elapsed period/, 'Reading profile must not create renewals');
 assert.match(admin, /c\.provider <> 'mock'/, 'Mock charges must not be counted as revenue');
+assert.match(admin, /for update/, 'Admin account login must serialize failure checks');
+assert.match(admin, /failed_login_attempts/, 'Admin failure counter must be persisted');
+assert.match(admin, /locked_until/, 'Admin lockout must be persisted');
+assert.match(admin, /attempts >= 5/, 'Lock admin account after five failures');
+assert.match(admin, /interval '15 minutes'/, 'Lockout duration must be 15 minutes');
+assert.match(admin, /next.length < 12/, 'New passwords require 12 characters');
+assert.match(admin, /delete from uceni.admin_tokens where admin_id/, 'Password change must revoke all sessions');
+const adminUi=read('admin/admin.js');
+assert.match(adminUi, /data-show-password/, 'Admin must have password visibility toggle');
+assert.match(adminUi, /historical mock transactions are excluded/i, 'Admin must explain zero commercial revenue');
+console.log('PASS: Admin login hardening checks');
 console.log('PASS: free-preview, static JS syntax and no-mock-billing guards');
