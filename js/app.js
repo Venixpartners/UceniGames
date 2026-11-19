@@ -635,7 +635,7 @@ document.addEventListener("click",function(e){
     if(!badge||unlockedBadges().indexOf(badge.value)===-1){if(status)status.textContent="Earn this badge before sharing it.";return;}
     var platform=t.dataset.badgePlatform;
     busy(t,true);
-    Promise.resolve().then(function(){return window.UCENI_BADGE_SHARE.share(badge.value,P.display_name||"Learner",handle?handle.value:"",platform);})
+    Promise.resolve(window.UCENI_BADGE_SHARE.share(badge.value,P.display_name||"Learner",handle?handle.value:"",platform))
      .then(function(message){if(status)status.textContent=message;})
      .catch(function(err){if(err.name!=="AbortError"&&status)status.textContent=err.message;})
      .finally(function(){busy(t,false);});
