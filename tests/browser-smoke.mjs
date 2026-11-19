@@ -62,8 +62,8 @@ try{
   await page.locator('button[data-badge-platform="download"]').click();
   const download=await downloadPromise;
   assert.ok(download.suggestedFilename().endsWith('.png'));
-  await page.locator('button[data-go="achievements"]').click();
-  await page.locator('button[data-go="account"]').click();
+  await page.getByRole('button',{name:'Back to subjects'}).click();
+  await page.locator('#tabs button[data-go="account"]').click();
   await page.getByText('Free preview: no subscription').waitFor({timeout:15000});
   await page.locator('button[data-act="sign_out"]').click();
   await page.locator('#dname').waitFor({timeout:15000});
