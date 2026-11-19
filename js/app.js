@@ -112,10 +112,11 @@ var app = document.getElementById("app"), tabs = document.getElementById("tabs")
 if(!C.billingLive) document.getElementById("banner").hidden = false;
 
 /* ---------- Back navigation ---------- */
-var PARENT = {achievements:"home",weekly:"home",home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
+var PARENT = {badge_share:"achievements",achievements:"home",weekly:"home",home:"welcome", difficulty:"home", session:"home", results:"home", review:"results",
   progress:"home", board:"home", account:"home", plans:"home", confirm:"plans", subscribed:"home",
   cancelled:"account", signup:"welcome", verify:"signup"};
 var lastResult = null, armed = false;
+var selectedBadge=null;
 // Keeps one history entry in hand so the phone's own back button runs goBack instead of leaving the site.
 function arm(){ if(!armed){ try{ history.pushState({uceni:1}, ""); armed = true; }catch(e){} } }
 function goBack(){
@@ -267,9 +268,54 @@ function gameHub(){
  '<div class="game-metrics"><div><b>🏅 '+won+'/20</b><span>badges earned</span></div><div><b>🎯 '+(g.weekly_points||0)+'</b><span>weekly points</span></div></div>'+
  '<div class="game-section"><h2>Daily Brain Quests</h2>'+daily.map(function(x){return '<div class="quest-row '+(x.progress>=x.goal?'done':'')+'"><span>'+(x.progress>=x.goal?'✅':'✦')+'</span><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small></span><b>'+x.progress+'/'+x.goal+'</b></div>';}).join("")+
  '<p class="small">Quests reset daily. Knowledge Points are earned through normal quiz scoring.</p></div>'+
- '<div class="game-shortcuts"><button class="btn alt" data-go="achievements">🏅 Achievements</button><button class="btn alt" data-go="weekly">🏆 Weekly board</button></div></section>';
+ '<div class="game-shortcuts"><button class="btn alt" data-go="achievements">🏅 Achievements &amp; Share</button><button class="btn alt" data-go="weekly">🏆 Weekly board</button></div></section>';
 }
-SCREENS.achievements=function(){var a=P.game&&P.game.badges||[];return '<div class="stack"><h1>🏅 Achievement Gallery</h1><p>Unlock 20 learning badges. They have no cash value or prizes.</p><div class="badge-grid">'+a.map(function(x){return '<div class="badge-tile '+(x.unlocked?'unlocked':'locked')+'"><span>'+(x.unlocked?'🏅':'🔒')+'</span><b>'+esc(x.name)+'</b><small>'+(x.unlocked?'Earned':'Keep learning')+'</small></div>';}).join("")+'</div><button class="btn alt" data-go="home">Back to subjects</button></div>';};
+SCREENS.achievements=function(){
+ var a=P.game&&P.game.badges||[],won=a.filter(function(x){return x.unlocked;});
+ return '<div class="stack"><h1>🏅 Achievement Gallery</h1>'+
+ '<p>Unlock 20 learning badges. Show friends a badge you earned, and invite them to learn too. No cash value or material prizes.</p>'+
+ (won.length?'<p class="small">Share your achievement privately or on social platforms. Friend mentions are optional.</p>':'<p class="notice">Play a quiz to earn your first shareable badge.</p>')+
+ '<div class="badge-grid">'+a.map(function(x){return '<div class="badge-tile '+(x.unlocked?'unlocked':'locked')+'"><span>'+(x.unlocked?'🏅':'🔒')+'</span><b>'+esc(x.name)+'</b><small>'+(x.unlocked?'Earned':'Keep learning')+'</small>'+
+ (x.unlocked?'<button class="btn alt badge-share-open" data-badge-choice="'+esc(x.name)+'" aria-label="Share '+esc(x.name)+' badge">Share badge</button>':'')+'</div>';}).join("")+
+ '</div><button class="btn alt" data-go="home">Back to subjects</button></div>';
+};
+function unlockedBadges(){return (P&&P.game&&P.game.badges||[]).filter(function(x){return x.unlocked;}).map(function(x){return x.name;});}
+SCREENS.badge_share=function(){
+ var a=unlockedBadges();
+ if(!a.length)return '<div class="stack"><h1>Share an achievement</h1><p>You have not earned a badge yet.</p><button class="btn alt" data-go="achievements">Back</button></div>';
+ if(a.indexOf(selectedBadge)===-1)selectedBadge=a[0];
+ return '<div class="stack badge-share-screen"><h1>🏅 Share your badge</h1>'+
+ '<p>Celebrate a real learning milestone and challenge a friend. Nothing is posted automatically.</p>'+
+ '<label for="badgeShareSelect">Earned badge</label><select id="badgeShareSelect" aria-label="Choose earned badge">'+
+ a.map(function(b){return '<option value="'+esc(b)+'"'+(b===selectedBadge?' selected':'')+'>'+esc(b)+'</option>';}).join('')+'</select>'+
+ '<div class="badge-preview"><canvas id="badgeShareCanvas" width="540" height="540" role="img" aria-label="Preview of earned Uceni achievement badge"></canvas></div>'+
+ '<label for="badgeFriendHandle">Friend’s social handle (optional)</label><input id="badgeFriendHandle" type="text" maxlength="50" autocomplete="off" placeholder="@friend — include in share message">'+
+ '<p class="small">Your friend’s handle is used only in the message you choose to share. The game does not tag or contact anyone for you.</p>'+
+ '<div class="badge-sharing-actions">'+
+ '<button class="btn" data-badge-platform="native">Share from my device</button>'+
+ '<button class="btn alt" data-badge-platform="download">Save PNG badge</button>'+
+ '<button class="btn alt" data-badge-platform="whatsapp">WhatsApp</button>'+
+ '<button class="btn alt" data-badge-platform="x">X</button>'+
+ '<button class="btn alt" data-badge-platform="facebook">Facebook</button>'+
+ '<button class="btn alt" data-badge-platform="telegram">Telegram</button>'+
+ '<button class="btn alt" data-badge-platform="linkedin">LinkedIn</button>'+
+ '<button class="btn alt" data-badge-platform="copy">Copy challenge text</button></div>'+
+ '<p class="note">For Instagram, TikTok, Snapchat or Stories: save the badge image, upload it in the social app, then tag friends there. Social links may share text or the game URL without embedding the picture.</p>'+
+ '<p id="badgeShareStatus" class="small" role="status" aria-live="polite"></p>'+
+ '<button class="btn quiet" data-go="achievements">Back to achievements</button></div>';
+};
+function drawSelectedBadge(){
+ var el=document.getElementById("badgeShareCanvas"),sel=document.getElementById("badgeShareSelect");
+ if(!el||!sel||!window.UCENI_BADGE_SHARE)return;
+ if(unlockedBadges().indexOf(sel.value)===-1)return;
+ selectedBadge=sel.value;
+ try{
+   var png=window.UCENI_BADGE_SHARE.picture(selectedBadge,P.display_name||"Learner");
+   var ctx=el.getContext("2d");
+   ctx.clearRect(0,0,el.width,el.height);ctx.drawImage(png,0,0,el.width,el.height);
+ }catch(e){var status=document.getElementById("badgeShareStatus");if(status)status.textContent=e.message;}
+}
+AFTER.badge_share=drawSelectedBadge;
 SCREENS.weekly=function(d){if(!d)return '<div class="loading">Loading</div>';return '<div class="stack"><h1>🏆 Weekly Learning Board</h1><p>Weekly Knowledge Points. Only opted-in learners appear. No monetary rewards.</p><ol class="board">'+(d.top.length?d.top.map(function(x){return '<li'+(x.me?' class="me"':'')+'><span class="rk">'+x.rank+'</span><span>'+esc(x.name)+'</span><span class="pt">'+x.points+' pts</span></li>';}).join(""):'<li>No players yet.</li>')+'</ol><button class="btn alt" data-go="home">Back to subjects</button></div>';};
 function handleInvite(code){if(!P)return;api("challenge_lookup",{code:code}).then(function(d){var x=d.challenge,sub=P.subjects.filter(function(z){return z.id===x.subject_id;})[0];if(!sub)return;if(!confirm(x.display_name+" scored "+x.correct+"/10 on "+sub.name+". Try those same questions?"))return;activeFriend={code:code,name:x.display_name,score:x.correct};pendingSubject=x.subject_id;chosenLevel=x.level;go("difficulty");}).catch(function(e){alert(e.message);});}
 
@@ -580,6 +626,21 @@ function busy(btn,on){ if(btn){ btn.disabled=on; } }
 
 document.addEventListener("click",function(e){
   var t = e.target.closest("button"); if(!t) return;
+  if(t.dataset.badgeChoice){
+    if(unlockedBadges().indexOf(t.dataset.badgeChoice)===-1)return;
+    selectedBadge=t.dataset.badgeChoice;go("badge_share");return;
+  }
+  if(t.dataset.badgePlatform){
+    var badge=document.getElementById("badgeShareSelect"),handle=document.getElementById("badgeFriendHandle"),status=document.getElementById("badgeShareStatus");
+    if(!badge||unlockedBadges().indexOf(badge.value)===-1){if(status)status.textContent="Earn this badge before sharing it.";return;}
+    var platform=t.dataset.badgePlatform;
+    busy(t,true);
+    Promise.resolve().then(function(){return window.UCENI_BADGE_SHARE.share(badge.value,P.display_name||"Learner",handle?handle.value:"",platform);})
+     .then(function(message){if(status)status.textContent=message;})
+     .catch(function(err){if(err.name!=="AbortError"&&status)status.textContent=err.message;})
+     .finally(function(){busy(t,false);});
+    return;
+  }
   if(t.dataset.practice){activeFriend=null;pendingPractice=true;pendingSubject=t.dataset.practice;go("difficulty");return;}
   if(t.dataset.theme){activeFriend=null;pendingPractice=false;pendingSubject=t.dataset.theme;go("difficulty");return;}
   if(t.dataset.avatar){api("settings",{avatar:t.dataset.avatar}).then(function(d){P=d.profile;go("account");}).catch(function(e){alert(e.message);});return;}
@@ -651,6 +712,9 @@ document.addEventListener("click",function(e){
     try{ localStorage.removeItem("uceni_name"); localStorage.removeItem("uceni_phone"); }catch(err){} go("welcome"); }); return; }
 });
 
+document.addEventListener("change",function(e){
+  if(e.target&&e.target.id==="badgeShareSelect")drawSelectedBadge();
+});
 document.addEventListener("keydown",function(e){
   if(current==="welcome" && e.key==="Enter" && e.target.tagName==="INPUT"){ e.preventDefault(); var b=app.querySelector('[data-act="sign_in"]'); if(b && !b.disabled) signIn(b); return; }
   if(current!=="session"||!sess||sess.locked) return;
