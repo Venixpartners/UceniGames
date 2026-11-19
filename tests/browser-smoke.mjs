@@ -62,6 +62,7 @@ try{
   await page.locator('button[data-badge-platform="download"]').click();
   const download=await downloadPromise;
   assert.ok(download.suggestedFilename().endsWith('.png'));
+  await page.getByRole('button',{name:'Back to achievements'}).click();
   await page.getByRole('button',{name:'Back to subjects'}).click();
   await page.locator('#tabs button[data-go="account"]').click();
   await page.getByText('Free preview: no subscription').waitFor({timeout:15000});
