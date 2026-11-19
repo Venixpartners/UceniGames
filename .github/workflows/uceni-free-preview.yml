@@ -17,4 +17,5 @@ jobs:
           node-version: '22'
       - run: node tests/smoke-static.mjs
       - run: node tests/gamification-static.mjs
+      - run: node tests/badge-share-static.mjs
       - run: node tests/responsive-static.mjs
