@@ -4,9 +4,9 @@
  * results, admin pages, billing or private learner information.
  * Internet remains required for the actual game.
  */
-const CACHE="uceni-static-v1";
+const CACHE="uceni-static-v2";
 const ALLOW=new Set([
- "/css/app.css","/js/app.js","/js/config.js",
+ "/css/app.css","/js/app.js","/js/config.js","/js/badge-share.js",
  "/favicon.svg","/assets/uceni-wordmark.svg",
  "/assets/uceni-wordmark-white.svg","/assets/uceni-icon-white.svg"
 ]);

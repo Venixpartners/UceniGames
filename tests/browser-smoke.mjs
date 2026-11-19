@@ -41,6 +41,28 @@ try{
   await page.getByText('Your Learning Adventure').waitFor({timeout:10000});
   await page.getByText('Personal best',{exact:false}).waitFor({timeout:10000});
   await page.locator('button[data-practice]').waitFor({timeout:10000});
+  // A full completed quiz awards the learner's own badge; verify earned-only sharing.
+  await page.locator('#tabs button[data-go="home"]').click();
+  await page.locator('button[data-go="achievements"]').click();
+  await page.locator('button[data-badge-choice]').first().waitFor({timeout:15000});
+  const earnedCount=await page.locator('button[data-badge-choice]').count();
+  assert.ok(earnedCount>=1&&earnedCount<=20,'Only earned badges should expose sharing buttons');
+  await page.locator('button[data-badge-choice]').first().click();
+  await page.getByText('Share your badge',{exact:false}).waitFor({timeout:10000});
+  const selected=await page.locator('#badgeShareSelect').inputValue();
+  assert.ok(selected.length>1);
+  const painted=await page.locator('#badgeShareCanvas').evaluate(el=>{
+    const rgba=el.getContext('2d').getImageData(0,0,el.width,el.height).data;
+    let opaque=0;for(let i=3;i<rgba.length;i+=4)if(rgba[i]>0)opaque++;
+    return opaque;
+  });
+  assert.ok(painted>100000,'Uceni badge preview should be rendered');
+  await page.locator('#badgeFriendHandle').fill('@learningfriend');
+  const downloadPromise=page.waitForEvent('download',{timeout:15000});
+  await page.locator('button[data-badge-platform="download"]').click();
+  const download=await downloadPromise;
+  assert.ok(download.suggestedFilename().endsWith('.png'));
+  await page.locator('button[data-go="achievements"]').click();
   await page.locator('button[data-go="account"]').click();
   await page.getByText('Free preview: no subscription').waitFor({timeout:15000});
   await page.locator('button[data-act="sign_out"]').click();

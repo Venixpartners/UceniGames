@@ -387,3 +387,14 @@ button{touch-action:manipulation}
   .opts{gap:.3rem}.opt{padding:.45rem}
   .clock{margin:.3rem 0}
 }
+
+/* Earned learning badge: responsive preview and intentional social sharing */
+.badge-share-open{min-height:40px;margin-top:.5rem;width:100%;font-size:.8rem}
+.badge-share-screen{max-width:680px;margin:0 auto}
+.badge-share-screen>label{font-size:.9rem;font-weight:700;margin:.3rem 0;display:block}
+.badge-share-screen select,.badge-share-screen input{display:block;width:100%;padding:.85rem;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-size:16px}
+.badge-preview{display:flex;justify-content:center;padding:.75rem;min-width:0}
+.badge-preview canvas{width:min(100%,330px);height:auto;aspect-ratio:1;border-radius:18px;box-shadow:0 8px 30px #0002}
+.badge-sharing-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin:.85rem 0}
+.badge-sharing-actions .btn{min-height:48px;white-space:normal;line-height:1.3;padding:.75rem .5rem}
+@media(max-width:350px){.badge-sharing-actions{gap:.4rem}.badge-sharing-actions .btn{font-size:.83rem}}
